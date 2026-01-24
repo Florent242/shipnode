@@ -154,6 +154,76 @@ rollback_to_release() {
     success "Rolled back to $timestamp"
 }
 
+# Setup PostgreSQL database
+setup_postgresql() {
+    # Check if PostgreSQL setup is enabled
+    if [ "${DB_SETUP_ENABLED:-false}" != "true" ]; then
+        return 0
+    fi
+
+    # Validate required variables
+    if [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+        warn "PostgreSQL setup enabled but DB_NAME, DB_USER, or DB_PASSWORD not set in config"
+        return 1
+    fi
+
+    info "Setting up PostgreSQL..."
+
+    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+        DB_NAME="$DB_NAME" \
+        DB_USER="$DB_USER" \
+        DB_PASSWORD="$DB_PASSWORD" \
+        bash << 'ENDSSH'
+        set -e
+
+        # Detect if running as root and set sudo prefix
+        SUDO=""
+        if [ "$EUID" -ne 0 ]; then
+            SUDO="sudo"
+        fi
+
+        # Install PostgreSQL
+        if ! command -v psql &> /dev/null; then
+            echo "Installing PostgreSQL..."
+            $SUDO apt-get update
+            $SUDO apt-get install -y postgresql postgresql-contrib
+        else
+            echo "PostgreSQL already installed: $(psql --version)"
+        fi
+
+        # Ensure PostgreSQL is running
+        $SUDO systemctl start postgresql
+        $SUDO systemctl enable postgresql
+
+        # Create database and user
+        echo "Creating database '$DB_NAME' and user '$DB_USER'..."
+
+        # Create database if it doesn't exist
+        $SUDO -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || \
+            $SUDO -u postgres psql -c "CREATE DATABASE \"$DB_NAME\";"
+
+        # Create user if it doesn't exist
+        $SUDO -u postgres psql -tc "SELECT 1 FROM pg_user WHERE usename = '$DB_USER'" | grep -q 1 || \
+            $SUDO -u postgres psql -c "CREATE USER \"$DB_USER\" WITH PASSWORD '$DB_PASSWORD';"
+
+        # Update password if user already exists
+        $SUDO -u postgres psql -c "ALTER USER \"$DB_USER\" WITH PASSWORD '$DB_PASSWORD';"
+
+        # Grant privileges
+        $SUDO -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE \"$DB_NAME\" TO \"$DB_USER\";"
+
+        # For PostgreSQL 15+, grant schema privileges
+        $SUDO -u postgres psql -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO \"$DB_USER\";" 2>/dev/null || true
+        $SUDO -u postgres psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"$DB_USER\";" 2>/dev/null || true
+        $SUDO -u postgres psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$DB_USER\";" 2>/dev/null || true
+
+        echo "PostgreSQL setup complete. Database '$DB_NAME' is ready."
+        echo "Connection string: postgresql://$DB_USER:[password]@localhost:5432/$DB_NAME"
+ENDSSH
+
+    success "PostgreSQL database '$DB_NAME' configured"
+}
+
 # ============================================================================
 # USER PROVISIONING FUNCTIONS
 # ============================================================================
@@ -851,6 +921,9 @@ cmd_setup() {
         fi
 ENDSSH
 
+    # Setup PostgreSQL if enabled
+    setup_postgresql
+
     success "Server setup complete"
     info "Ready to deploy with: shipnode deploy"
 }
@@ -1469,6 +1542,45 @@ ENDSSH
     fi
 }
 
+# Upload .env file to server
+cmd_env() {
+    load_config
+
+    # Check if .env file exists locally
+    if [ ! -f .env ]; then
+        error ".env file not found in current directory"
+    fi
+
+    info "Uploading .env file to server..."
+
+    # Determine target path based on deployment mode
+    if [ "$ZERO_DOWNTIME" = "true" ]; then
+        # Upload to shared directory for zero-downtime deployments
+        TARGET_PATH="$REMOTE_PATH/shared/.env"
+        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_PATH/shared"
+    else
+        # Upload directly to app directory for legacy deployments
+        TARGET_PATH="$REMOTE_PATH/.env"
+        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_PATH"
+    fi
+
+    # Upload the .env file
+    scp -P "$SSH_PORT" .env "$SSH_USER@$SSH_HOST:$TARGET_PATH"
+
+    success ".env file uploaded to $TARGET_PATH"
+
+    # Restart backend app if running to reload env vars
+    if [ "$APP_TYPE" = "backend" ]; then
+        info "Restarting app to reload environment variables..."
+        if ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 describe $PM2_APP_NAME" &> /dev/null; then
+            ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 reload $PM2_APP_NAME"
+            success "App restarted with new environment variables"
+        else
+            warn "App not running. Environment variables will be loaded on next deploy."
+        fi
+    fi
+}
+
 # Show help
 cmd_help() {
     cat << EOF
@@ -1481,6 +1593,7 @@ Commands:
     setup               First-time server setup (Node, PM2, Caddy, jq)
     deploy              Deploy the application
     deploy --skip-build Deploy without running build step
+    env                 Upload .env file to server
     status              Check application status
     logs                View application logs (backend only)
     restart             Restart application (backend only)
@@ -1517,6 +1630,7 @@ Examples:
     shipnode init               # Create config file
     shipnode setup              # Setup server (first time)
     shipnode deploy             # Deploy your app
+    shipnode env                # Upload .env file to server
     shipnode unlock             # Clear stuck deployment lock
     shipnode rollback           # Rollback to previous release
     shipnode rollback 2         # Rollback 2 releases back
@@ -1541,6 +1655,9 @@ main() {
             ;;
         deploy)
             cmd_deploy "$2"
+            ;;
+        env)
+            cmd_env
             ;;
         status)
             cmd_status

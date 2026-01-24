@@ -66,3 +66,18 @@ HEALTH_CHECK_TIMEOUT=30
 
 # Number of health check retries before rollback
 HEALTH_CHECK_RETRIES=3
+
+# ============================================
+# PostgreSQL Database Setup
+# ============================================
+# Enable PostgreSQL installation and setup
+DB_SETUP_ENABLED=true
+
+# Database name to create
+DB_NAME=myapp_db
+
+# Database user to create
+DB_USER=myapp_user
+
+# Database password for the user
+DB_PASSWORD=change_me_in_production
