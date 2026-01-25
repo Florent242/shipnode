@@ -320,15 +320,15 @@ parse_users_yaml() {
 
     in_users && /^  - username:/ {
         if (username != "") {
-            print username "|" email "|" password "|" sudo "|" public_key "|" public_key_file "|" public_keys
+            print username "|" email "|" password "|" sudo "|" authorized_key "|" authorized_key_file "|" authorized_keys
         }
         username=$3
         email=""
         password=""
         sudo="false"
-        public_key=""
-        public_key_file=""
-        public_keys=""
+        authorized_key=""
+        authorized_key_file=""
+        authorized_keys=""
         in_user=1
         next
     }
@@ -341,40 +341,40 @@ parse_users_yaml() {
         next
     }
     in_user && /^    sudo:/ { sudo=$2; next }
-    in_user && /^    public_key:/ {
-        public_key=$0
-        sub(/^    public_key: /, "", public_key)
-        gsub(/"/, "", public_key)
-        gsub(/'\''/, "", public_key)
+    in_user && /^    authorized_key:/ {
+        authorized_key=$0
+        sub(/^    authorized_key: /, "", authorized_key)
+        gsub(/"/, "", authorized_key)
+        gsub(/'\''/, "", authorized_key)
         next
     }
-    in_user && /^    public_key_file:/ {
-        public_key_file=$2
-        gsub(/"/, "", public_key_file)
-        gsub(/'\''/, "", public_key_file)
+    in_user && /^    authorized_key_file:/ {
+        authorized_key_file=$2
+        gsub(/"/, "", authorized_key_file)
+        gsub(/'\''/, "", authorized_key_file)
         next
     }
-    in_user && /^    public_keys:/ {
-        in_public_keys=1
+    in_user && /^    authorized_keys:/ {
+        in_authorized_keys=1
         next
     }
-    in_public_keys && /^      - / {
+    in_authorized_keys && /^      - / {
         key=$0
         sub(/^      - /, "", key)
         gsub(/"/, "", key)
         gsub(/'\''/, "", key)
-        if (public_keys == "") {
-            public_keys=key
+        if (authorized_keys == "") {
+            authorized_keys=key
         } else {
-            public_keys=public_keys ":::" key
+            authorized_keys=authorized_keys ":::" key
         }
         next
     }
-    in_public_keys && /^    [^ ]/ { in_public_keys=0 }
+    in_authorized_keys && /^    [^ ]/ { in_authorized_keys=0 }
 
     END {
         if (username != "") {
-            print username "|" email "|" password "|" sudo "|" public_key "|" public_key_file "|" public_keys
+            print username "|" email "|" password "|" sudo "|" authorized_key "|" authorized_key_file "|" authorized_keys
         }
     }
     ' "$yaml_file"
@@ -386,30 +386,30 @@ create_remote_user() {
     local email=$2
     local password_hash=$3
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -s "$username" "$password_hash" << 'ENDSSH'
+    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
-        USERNAME=$1
-        PASSWORD_HASH=$2
+        USERNAME="$username"
+        PASSWORD_HASH="$password_hash"
 
         # Detect sudo prefix
         SUDO=""
-        if [ "$EUID" -ne 0 ]; then
+        if [ "\$EUID" -ne 0 ]; then
             SUDO="sudo"
         fi
 
         # Check if user exists
-        if id "$USERNAME" &>/dev/null; then
+        if id "\$USERNAME" &>/dev/null; then
             echo "EXISTS"
             exit 0
         fi
 
         # Create user
-        if [ -n "$PASSWORD_HASH" ]; then
-            $SUDO useradd -m -s /bin/bash -p "$PASSWORD_HASH" "$USERNAME"
-            # Force password change on first login
-            $SUDO chage -d 0 "$USERNAME"
+        if [ -n "\$PASSWORD_HASH" ]; then
+            \$SUDO useradd -m -s /bin/bash -p "\$PASSWORD_HASH" "\$USERNAME"
+            # Force password change on first login (non-fatal if it fails)
+            \$SUDO chage -d 0 "\$USERNAME" 2>/dev/null || true
         else
-            $SUDO useradd -m -s /bin/bash "$USERNAME"
+            \$SUDO useradd -m -s /bin/bash "\$USERNAME"
         fi
 
         echo "CREATED"
@@ -443,26 +443,26 @@ add_user_ssh_key() {
     local username=$1
     local ssh_key=$2
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -s "$username" "$ssh_key" << 'ENDSSH'
+    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
-        USERNAME=$1
-        SSH_KEY=$2
+        USERNAME="$username"
+        SSH_KEY="$ssh_key"
 
         SUDO=""
-        if [ "$EUID" -ne 0 ]; then
+        if [ "\$EUID" -ne 0 ]; then
             SUDO="sudo"
         fi
 
-        USER_HOME=$($SUDO eval echo ~$USERNAME)
-        AUTHORIZED_KEYS="$USER_HOME/.ssh/authorized_keys"
+        USER_HOME=\$(\$SUDO eval echo ~\$USERNAME)
+        AUTHORIZED_KEYS="\$USER_HOME/.ssh/authorized_keys"
 
         # Check if key already exists
-        if $SUDO grep -qF "$SSH_KEY" "$AUTHORIZED_KEYS" 2>/dev/null; then
+        if \$SUDO grep -qF "\$SSH_KEY" "\$AUTHORIZED_KEYS" 2>/dev/null; then
             exit 0
         fi
 
         # Add key
-        echo "$SSH_KEY" | $SUDO tee -a "$AUTHORIZED_KEYS" > /dev/null
+        echo "\$SSH_KEY" | \$SUDO tee -a "\$AUTHORIZED_KEYS" > /dev/null
 ENDSSH
 }
 
@@ -581,7 +581,7 @@ ENDSSH
     fi
 
     # Process each user
-    while IFS='|' read -r username email password sudo public_key public_key_file public_keys; do
+    while IFS='|' read -r username email password sudo authorized_key authorized_key_file authorized_keys; do
         # Validate username
         if ! validate_username "$username"; then
             warn "Invalid username: $username (skipping)"
@@ -602,46 +602,47 @@ ENDSSH
 
         # Create user
         local result=$(create_remote_user "$username" "$email" "$password")
+        local user_exists=false
 
         if [ "$result" = "EXISTS" ]; then
-            info "User already exists: $username (skipping)"
-            continue
+            user_exists=true
+            info "User exists: $username (updating SSH keys if provided)"
         fi
 
         local auth_method=""
 
         # Setup SSH if keys provided
-        if [ -n "$public_key" ] || [ -n "$public_key_file" ] || [ -n "$public_keys" ]; then
+        if [ -n "$authorized_key" ] || [ -n "$authorized_key_file" ] || [ -n "$authorized_keys" ]; then
             setup_user_ssh_dir "$username"
             auth_method="ssh-key"
 
-            # Add inline public key
-            if [ -n "$public_key" ]; then
-                if validate_ssh_key "$public_key"; then
-                    add_user_ssh_key "$username" "$public_key"
+            # Add inline authorized key
+            if [ -n "$authorized_key" ]; then
+                if validate_ssh_key "$authorized_key"; then
+                    add_user_ssh_key "$username" "$authorized_key"
                 else
                     warn "Invalid SSH key for user: $username"
                 fi
             fi
 
             # Add key from file
-            if [ -n "$public_key_file" ]; then
-                local key_content=$(read_key_file "$public_key_file")
+            if [ -n "$authorized_key_file" ]; then
+                local key_content=$(read_key_file "$authorized_key_file")
                 if [ -n "$key_content" ] && validate_ssh_key "$key_content"; then
                     add_user_ssh_key "$username" "$key_content"
                 else
-                    warn "Invalid or missing SSH key file: $public_key_file"
+                    warn "Invalid or missing SSH key file: $authorized_key_file"
                 fi
             fi
 
             # Add multiple keys
-            if [ -n "$public_keys" ]; then
-                IFS=':::' read -ra KEYS <<< "$public_keys"
+            if [ -n "$authorized_keys" ]; then
+                IFS=':::' read -ra KEYS <<< "$authorized_keys"
                 for key in "${KEYS[@]}"; do
                     if validate_ssh_key "$key"; then
                         add_user_ssh_key "$username" "$key"
                     else
-                        warn "Invalid SSH key in public_keys for user: $username"
+                        warn "Invalid SSH key in authorized_keys for user: $username"
                     fi
                 done
             fi
@@ -652,30 +653,36 @@ ENDSSH
             continue
         fi
 
-        # Grant deploy permissions
-        grant_deploy_permissions "$username"
+        # Skip these steps for existing users
+        if [ "$user_exists" = false ]; then
+            # Grant deploy permissions
+            grant_deploy_permissions "$username"
 
-        # Grant sudo if requested
-        if [ "$sudo" = "true" ]; then
-            grant_sudo_access "$username"
-        fi
+            # Grant sudo if requested
+            if [ "$sudo" = "true" ]; then
+                grant_sudo_access "$username"
+            fi
 
-        # Record user in users.json
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
-            cd $REMOTE_PATH/.shipnode
-            CURRENT_DATE=\$(date -Is)
-            jq ".users += [{\"username\":\"$username\",\"email\":\"$email\",\"auth\":\"$auth_method\",\"sudo\":$sudo,\"created_at\":\"\$CURRENT_DATE\"}]" users.json > users.json.tmp
-            mv users.json.tmp users.json
+            # Record user in users.json
+            ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+                cd $REMOTE_PATH/.shipnode
+                CURRENT_DATE=\$(date -Is)
+                jq ".users += [{\"username\":\"$username\",\"email\":\"$email\",\"auth\":\"$auth_method\",\"sudo\":$sudo,\"created_at\":\"\$CURRENT_DATE\"}]" users.json > users.json.tmp
+                mv users.json.tmp users.json
 ENDSSH
 
-        # Report creation
-        local sudo_msg=""
-        [ "$sudo" = "true" ] && sudo_msg=", sudo enabled"
+            # Report creation
+            local sudo_msg=""
+            [ "$sudo" = "true" ] && sudo_msg=", sudo enabled"
 
-        if [ "$auth_method" = "password" ]; then
-            success "Created user: $username (password auth, must change on first login$sudo_msg)"
+            if [ "$auth_method" = "password" ]; then
+                success "Created user: $username (password auth, must change on first login$sudo_msg)"
+            else
+                success "Created user: $username (SSH key added$sudo_msg)"
+            fi
         else
-            success "Created user: $username (SSH key added$sudo_msg)"
+            # Report update for existing user
+            success "Updated SSH keys for existing user: $username"
         fi
 
     done <<< "$users_data"
@@ -698,13 +705,11 @@ cmd_user_list() {
 
     # Fetch and display users
     ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
-        cd $REMOTE_PATH/.shipnode
-
         echo ""
         printf "%-15s %-30s %-12s %-8s %s\n" "USERNAME" "EMAIL" "AUTH" "SUDO" "CREATED"
         echo "==================================================================================="
 
-        cat users.json | jq -r '.users[] | "\(.username)|\(.email)|\(.auth)|\(.sudo)|\(.created_at)"' | while IFS='|' read -r username email auth sudo created; do
+        cat $REMOTE_PATH/.shipnode/users.json | jq -r '.users[] | "\(.username)|\(.email)|\(.auth)|\(.sudo)|\(.created_at)"' | while IFS='|' read -r username email auth sudo created; do
             # Format created date
             created_short=$(echo "$created" | cut -d'T' -f1)
             sudo_text="no"
@@ -714,7 +719,7 @@ cmd_user_list() {
         done
 
         echo ""
-        total=$(cat users.json | jq '.users | length')
+        total=$(cat $REMOTE_PATH/.shipnode/users.json | jq '.users | length')
         echo "Total: $total users"
 ENDSSH
 }
@@ -975,7 +980,7 @@ EOF
         echo "    email: $email" >> users.yml
 
         if [ "$auth_method" = "ssh" ]; then
-            echo "    public_key: \"$ssh_key\"" >> users.yml
+            echo "    authorized_key: \"$ssh_key\"" >> users.yml
         else
             # Generate password hash
             local hash=$(generate_password_hash "$password")
