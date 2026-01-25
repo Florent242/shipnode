@@ -11,37 +11,37 @@ users:
   # User with SSH key + sudo access
   - username: bob
     email: bob@example.com
-    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... bob@laptop"
+    authorized_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... bob@laptop"
     sudo: true
 
   # CI/CD user - SSH key from file, no sudo
   - username: ci-deploy
     email: ci@example.com
-    public_key_file: ~/.ssh/ci_deploy.pub
+    authorized_key_file: ~/.ssh/ci_deploy.pub
 
   # Admin with password + SSH key + sudo
   - username: devops
     email: devops@example.com
     password: "$6$rounds=5000$..."  # Generate with: shipnode mkpasswd
     sudo: true
-    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... devops@work"
+    authorized_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... devops@work"
 
   # User with multiple SSH keys
   - username: developer
     email: dev@example.com
     sudo: false
-    public_keys:
+    authorized_keys:
       - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample1... dev@work"
       - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample2... dev@home"
 
 # Field descriptions:
-# - username:        System username (alphanumeric + underscore/dash, max 32 chars)
-# - email:           User email address (required)
-# - password:        Hashed password (use 'shipnode mkpasswd' to generate)
-# - sudo:            Grant sudo access (true/false, default: false)
-# - public_key:      Single SSH public key (inline)
-# - public_key_file: Path to SSH public key file
-# - public_keys:     Multiple SSH public keys (list)
+# - username:          System username (alphanumeric + underscore/dash, max 32 chars)
+# - email:             User email address (required)
+# - password:          Hashed password (use 'shipnode mkpasswd' to generate)
+# - sudo:              Grant sudo access (true/false, default: false)
+# - authorized_key:    Single SSH public key (inline)
+# - authorized_key_file: Path to SSH public key file
+# - authorized_keys:   Multiple SSH public keys (list)
 
 # Quick start:
 # 1. Generate password hash: shipnode mkpasswd

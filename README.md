@@ -319,7 +319,7 @@ users:
 
   - username: bob
     email: bob@example.com
-    public_key: "ssh-ed25519 AAAAC3... bob@laptop"
+    authorized_key: "ssh-ed25519 AAAAC3... bob@laptop"
     sudo: true
 ```
 
@@ -340,9 +340,9 @@ The `users.yml` file defines all users to provision. Place it in the same direct
 | `email` | string | Yes | User email address |
 | `password` | string | No | Hashed password (use `shipnode mkpasswd`) |
 | `sudo` | boolean | No | Grant sudo access (default: false) |
-| `public_key` | string | No | Single SSH public key (inline) |
-| `public_key_file` | string | No | Path to SSH public key file |
-| `public_keys` | list | No | Multiple SSH public keys |
+| `authorized_key` | string | No | Single SSH public key (inline) |
+| `authorized_key_file` | string | No | Path to SSH public key file |
+| `authorized_keys` | list | No | Multiple SSH public keys |
 
 #### Example Configurations
 
@@ -357,7 +357,7 @@ The `users.yml` file defines all users to provision. Place it in the same direct
 ```yaml
 - username: bob
   email: bob@company.com
-  public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... bob@laptop"
+  authorized_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample... bob@laptop"
   sudo: true
 ```
 
@@ -365,14 +365,14 @@ The `users.yml` file defines all users to provision. Place it in the same direct
 ```yaml
 - username: ci-deploy
   email: ci@company.com
-  public_key_file: ~/.ssh/ci_deploy.pub
+  authorized_key_file: ~/.ssh/ci_deploy.pub
 ```
 
 **User with multiple keys:**
 ```yaml
 - username: developer
   email: dev@company.com
-  public_keys:
+  authorized_keys:
     - "ssh-ed25519 AAAAC3... dev@work"
     - "ssh-ed25519 AAAAC3... dev@home"
 ```
@@ -383,7 +383,7 @@ The `users.yml` file defines all users to provision. Place it in the same direct
   email: devops@company.com
   password: "$6$rounds=5000$..."
   sudo: true
-  public_key: "ssh-ed25519 AAAAC3... devops@work"
+  authorized_key: "ssh-ed25519 AAAAC3... devops@work"
 ```
 
 ### Commands
@@ -469,12 +469,12 @@ users:
 
   - username: bob
     email: bob@company.com
-    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1... bob@laptop"
+    authorized_key: "ssh-ed25519 AAAAC3NzaC1lZDI1... bob@laptop"
     sudo: true
 
   - username: ci-deploy
     email: ci@company.com
-    public_key_file: ~/.ssh/ci_deploy.pub
+    authorized_key_file: ~/.ssh/ci_deploy.pub
 EOF
 
 # 3. Provision users
@@ -884,6 +884,48 @@ exec_mode: 'cluster'
 - Run as non-root user when possible
 - Enable UFW firewall: `ufw allow 22,80,443/tcp`
 - Keep server updated: `apt update && apt upgrade`
+
+## Roadmap
+
+Upcoming features to make deployment even simpler:
+
+### Interactive `init` Wizard
+Auto-detect framework and guide setup with prompts:
+```bash
+$ shipnode init
+Detected: package.json with "express" dependency → backend
+
+? Server IP: 192.168.1.100
+? SSH user [root]: deploy
+? Domain: api.myapp.com
+? Add deployment users? (Y/n): y
+? Username: alice
+? Email: alice@company.com
+? Auth method: (ssh-key/password) ssh-key
+? SSH public key: ssh-ed25519 AAAAC3...
+
+✓ Created shipnode.conf
+✓ Created users.yml (1 user)
+```
+
+### Pre-flight Checks (`doctor`)
+Validate everything before deployment:
+```bash
+$ shipnode doctor
+✓ shipnode.conf exists
+✓ SSH connection OK
+✓ Node.js v20 installed
+✗ Health endpoint /health not responding
+```
+
+### GitHub Actions Generator
+Auto-generate CI/CD workflow:
+```bash
+$ shipnode ci github
+✓ Created .github/workflows/deploy.yml
+
+Required secrets: SSH_PRIVATE_KEY, SSH_HOST
+```
 
 ## Contributing
 
