@@ -1420,14 +1420,20 @@ cmd_init_interactive() {
     # 3. SSH connection details
     echo ""
     info "Server connection details"
+    echo "Enter SSH credentials for your deployment server"
     echo ""
     
     local ssh_user ssh_host ssh_port
     prompt_with_default "SSH user" "root" "ssh_user"
+    echo "  (The SSH user to connect with - typically 'root' or your username)"
     prompt_with_validation "SSH host (IP or hostname)" "validate_ip_or_hostname" "ssh_host" ""
+    echo "  (Your server's IP address or domain name - e.g. 192.168.1.100 or server.example.com)"
     prompt_with_validation "SSH port" "validate_port" "ssh_port" "22"
+    echo "  (SSH port - default is 22)"
     
     # 4. Deployment path
+    echo ""
+    info "Deployment configuration"
     echo ""
     local remote_path app_name
     
@@ -1441,12 +1447,14 @@ cmd_init_interactive() {
     fi
     
     prompt_with_default "Remote deployment path" "/var/www/$app_name" "remote_path"
+    echo "  (Directory on the server where your app will be deployed)"
     
     # 5. Backend-specific config
     local pm2_app_name backend_port domain
     if [ "$app_type" = "backend" ]; then
         echo ""
         info "Backend configuration"
+        echo "Configure your Node.js backend application"
         echo ""
         
         pm2_app_name="$app_name"
@@ -1457,21 +1465,27 @@ cmd_init_interactive() {
         suggested_port=$(suggest_port)
         
         prompt_with_validation "Application port" "validate_port" "backend_port" "${suggested_port:-3000}"
+        echo "  (Port your Node.js app will listen on - typically 3000, 5000, or 8080)"
         prompt_with_validation "Domain (optional, press Enter to skip)" "validate_domain" "domain" ""
+        echo "  (Optional: Your domain name for HTTPS - e.g. api.myapp.com)"
     fi
     
     # 6. Frontend-specific config
     if [ "$app_type" = "frontend" ]; then
         echo ""
         info "Frontend configuration"
+        echo "Configure your static site deployment"
         echo ""
+        echo ""
+        echo "Note: Domain is required for frontend deployments (needed for Caddy web server)"
         
         while true; do
-            prompt_with_validation "Domain (required for Caddy)" "validate_domain" "domain" ""
+            prompt_with_validation "Domain" "validate_domain" "domain" ""
+            echo "  (Your domain name - e.g. myapp.com or www.myapp.com)"
             if [ -n "$domain" ]; then
                 break
             fi
-            warn "Domain is required for frontenddeployments"
+            warn "Domain is required for frontend deployments"
         done
     fi
     
