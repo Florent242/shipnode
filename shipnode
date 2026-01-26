@@ -1375,7 +1375,7 @@ cmd_init_interactive() {
     # Welcome banner
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║  ShipNode Interactive Setup       ║${NC}"
+    echo -e "${BLUE}║  ShipNode Interactive Setup        ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════╝${NC}"
     echo ""
     
