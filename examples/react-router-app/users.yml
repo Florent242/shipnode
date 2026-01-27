@@ -4,7 +4,7 @@
 users:
     - username: deploy
     email: deploy@devalade.me
-    authorized_key: "ssh-ed25519 "
+    authorized_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK1+hmiyuPzy64t5MOZ64bDByX86lJJSny46Y9A800xz devalade@ubuntu"
     sudo: true
 
 
