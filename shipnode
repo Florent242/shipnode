@@ -1790,7 +1790,12 @@ cmd_init_interactive() {
     
     # Try to get app name from package.json
     if [ -f "package.json" ] && command -v jq &> /dev/null; then
-        app_name=$(jq -r '.name // empty' package.json 2>/dev/null | sed -E 's/^@[^/]+\/(.*)$/\1/' | tr ' ' '-' | tr -c 'A-Za-z0-9._-' '-' | sed 's/-*$//')
+        app_name=$(jq -r '.name // empty' package.json 2>/dev/null \
+            | sed -E 's/^@[^/]+\///' \
+            | tr ' ' '-' \
+            | sed -E 's/[^A-Za-z0-9._-]+/-/g' \
+            | sed -E 's/-+/-/g' \
+            | sed -E 's/^-+|-+$//g')
     fi
     
     if [ -z "$app_name" ]; then
