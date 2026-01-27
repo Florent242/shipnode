@@ -18,7 +18,7 @@ Simple, zero-config deployment tool for Node.js backends and static frontends. D
 
 ## Installation
 
-### Quick Install (Recommended)
+### For Users (Recommended)
 
 Download and run the self-extracting installer:
 
@@ -26,7 +26,7 @@ Download and run the self-extracting installer:
 curl -fsSL https://github.com/devalade/shipnode/releases/latest/download/shipnode-installer.sh | bash
 ```
 
-Or download manually first:
+Or download manually:
 
 ```bash
 wget https://github.com/devalade/shipnode/releases/latest/download/shipnode-installer.sh
@@ -39,22 +39,37 @@ The installer will:
 - Create a symlink to `/usr/local/bin` or add to your PATH
 - Verify the installation
 
-### Install from Source
+### For Developers
+
+Clone the repository and use the modular version:
 
 ```bash
 git clone https://github.com/devalade/shipnode.git
 cd shipnode
-./install.sh
+./shipnode help
+```
+
+The modular version sources all modules from `lib/` dynamically, making it easy to:
+- Modify individual modules
+- Test changes immediately
+- Contribute to the project
+
+**To build the distributable version:**
+```bash
+./build.sh
+# Creates: shipnode-bundled (single file for distribution)
 ```
 
 ### Uninstall
 
+**If installed via installer:**
 ```bash
-# If installed via installer
 rm -rf ~/.shipnode  # or /opt/shipnode
 sudo rm /usr/local/bin/shipnode
+```
 
-# If installed from source
+**If cloned from source:**
+```bash
 cd /path/to/shipnode
 ./uninstall.sh
 ```
@@ -1006,6 +1021,58 @@ $ shipnode ci github
 
 Required secrets: SSH_PRIVATE_KEY, SSH_HOST
 ```
+
+## Project Structure
+
+ShipNode is organized as a modular bash project for maintainability:
+
+```
+shipnode/
+├── shipnode                    # Main entry point (sources all modules)
+├── lib/
+│   ├── core.sh                # Globals, colors, logging functions
+│   ├── release.sh             # Zero-downtime release management
+│   ├── database.sh            # PostgreSQL setup functions
+│   ├── users.sh               # User provisioning helpers
+│   ├── framework.sh           # Framework detection from package.json
+│   ├── validation.sh          # Input validation functions
+│   ├── prompts.sh             # Interactive prompts + Gum UI
+│   └── commands/
+│       ├── config.sh          # Config loading
+│       ├── users-yaml.sh      # Users.yml generation
+│       ├── user.sh            # User sync/list/remove
+│       ├── mkpasswd.sh        # Password hash generation
+│       ├── init.sh            # Init command
+│       ├── setup.sh           # Setup command
+│       ├── deploy.sh          # Deploy command
+│       ├── status.sh          # Status/logs/restart/stop
+│       ├── unlock.sh          # Unlock command
+│       ├── rollback.sh        # Rollback/releases
+│       ├── migrate.sh         # Migrate command
+│       ├── env.sh             # Env upload
+│       ├── help.sh            # Help command
+│       └── main.sh            # Main dispatcher
+├── build.sh                   # Optional: Bundle modules into single file
+├── templates/                 # PM2 and Caddy templates
+└── examples/                  # Example projects
+```
+
+### Development Workflow
+
+**For Development:**
+```bash
+# Run modular version (sources lib/ modules)
+./shipnode help
+```
+
+**For Distribution:**
+```bash
+# Bundle into single file
+./build.sh
+# Creates: shipnode-bundled
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed module documentation.
 
 ## Contributing
 
