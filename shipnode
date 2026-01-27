@@ -438,6 +438,14 @@ read_key_file() {
 # ============================================================================
 
 # Parse package.json safely and extract dependencies
+# Validates JSON format and extracts both dependencies and devDependencies
+# Args:
+#   $1: Path to package.json file (default: ./package.json)
+# Returns:
+#   Comma-separated list of package names, or empty string on failure
+# Exit codes:
+#   0: Success, dependencies found
+#   1: File not found, invalid JSON, or no dependencies
 parse_package_json() {
     local pkg_file="${1:-package.json}"
     
@@ -517,7 +525,18 @@ suggest_app_type() {
     return 0
 }
 
-# Detect framework from package.json
+# Detect framework from package.json dependencies
+# Identifies 14 popular frameworks and suggests appropriate app type
+# Args:
+#   $1: Path to package.json file (default: ./package.json)
+# Returns:
+#   "framework_name|app_type" where:
+#     - framework_name: Express, NestJS, React, Next.js, etc. or "none"
+#     - app_type: backend, frontend, or unknown
+# Examples:
+#   Express project → "Express|backend"
+#   React project → "React|frontend"
+#   No framework → "none|unknown"
 detect_framework() {
     local pkg_file="${1:-package.json}"
     
@@ -573,6 +592,16 @@ detect_framework() {
 }
 
 # Auto-detect port from package.json scripts
+# Searches start/dev scripts for common port declaration patterns
+# Args:
+#   $1: Path to package.json file (default: ./package.json)
+# Returns:
+#   Port number (1-65535) if detected, empty string otherwise
+# Detection patterns (priority order):
+#   1. PORT=3000
+#   2. --port=5000 or --port 8080
+#   3. localhost:4000 or 127.0.0.1:9000
+#   4. listen(:3000)
 suggest_port() {
     local pkg_file="${1:-package.json}"
     
@@ -620,6 +649,15 @@ suggest_port() {
 # ============================================================================
 
 # Validate IP address or hostname
+# Accepts both IPv4 addresses and RFC-compliant hostnames
+# Args:
+#   $1: IP address or hostname to validate
+# Returns:
+#   Exit code 0 if valid, 1 if invalid
+# Examples:
+#   192.168.1.1 → valid
+#   example.com → valid
+#   999.999.999.999 → invalid
 validate_ip_or_hostname() {
     local input=$1
     
@@ -1478,11 +1516,20 @@ prompt_with_validation() {
 }
 
 # =============================================================================
-#=============================================================================
 # GUM UI WRAPPERS (with fallback)
 # ============================================================================
 
 # Enhanced input with Gum (or fallback to classic)
+# Provides beautiful input prompts with Gum when available and TTY present
+# Args:
+#   $1: Prompt text
+#   $2: Default value (optional)
+#   $3: Placeholder text (optional, defaults to $2)
+# Returns:
+#   User input or default value
+# Notes:
+#   - Auto-fallback to classic prompts if Gum unavailable or no TTY
+#   - TTY check ensures compatibility with CI/CD environments
 gum_input() {
     local prompt=$1
     local default=${2:-}
@@ -1511,6 +1558,15 @@ gum_input() {
 }
 
 # Enhanced selection with Gum (or fallback to classic)
+# Provides arrow-key selection menu with Gum when available
+# Args:
+#   $1: Header text
+#   $@: Options to choose from (remaining arguments)
+# Returns:
+#   Selected option, or first option if selection fails
+# Notes:
+#   - Auto-fallback to numbered menu if Gum unavailable or no TTY
+#   - Returns first option as default on error
 gum_choose() {
     local header=$1
     shift
@@ -1539,6 +1595,15 @@ gum_choose() {
 }
 
 # Enhanced confirmation with Gum (or fallback to classic)
+# Provides yes/no confirmation prompt with Gum when available
+# Args:
+#   $1: Confirmation message
+#   $2: Default value (y or n, default: y)
+# Returns:
+#   Exit code 0 for yes, 1 for no
+# Notes:
+#   - Auto-fallback to classic y/n prompt if Gum unavailable or no TTY
+#   - Uses existing prompt_yes_no function as fallback
 gum_confirm() {
     local message=$1
     local default=${2:-y}
