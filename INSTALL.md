@@ -1,6 +1,15 @@
 # ShipNode Installation Guide
 
-## Quick Install (Recommended)
+## Overview
+
+ShipNode offers two installation workflows:
+
+1. **For Users** - Install the bundled version via installer (recommended)
+2. **For Developers** - Clone the repo and use the modular version
+
+---
+
+## For Users: Quick Install (Recommended)
 
 Download and run the self-extracting installer:
 
@@ -17,19 +26,75 @@ chmod +x shipnode-installer.sh
 ```
 
 The interactive installer will:
-- Extract ShipNode to your chosen location
-- Automatically set up PATH or create a symlink
+- Extract the bundled ShipNode to your chosen location
+- Set up PATH or create a symlink
 - Verify the installation
 
-## Alternative: Install from Source
+---
 
-If you prefer to install from source:
+## For Developers: Install from Source
+
+Clone the repository to work with the modular codebase:
 
 ```bash
 git clone https://github.com/devalade/shipnode.git
 cd shipnode
-./install.sh
+./shipnode help
 ```
+
+### Why Use the Modular Version?
+
+The modular version (`./shipnode`) sources all modules from `lib/` dynamically:
+
+- **Instant feedback**: Changes to modules take effect immediately
+- **Easy debugging**: Test individual modules in isolation
+- **Better collaboration**: Work on separate modules without conflicts
+- **Clean architecture**: Each module has a single responsibility
+
+### Project Structure
+
+```
+shipnode/
+├── shipnode              # Main entry point (sources lib/ modules)
+├── lib/
+│   ├── core.sh          # Core utilities
+│   ├── release.sh       # Release management
+│   ├── framework.sh     # Framework detection
+│   ├── validation.sh    # Input validation
+│   ├── prompts.sh       # Interactive prompts
+│   └── commands/        # Command implementations
+│       ├── init.sh
+│       ├── setup.sh
+│       ├── deploy.sh
+│       └── ...
+└── build.sh             # Build bundled version
+```
+
+### Development Workflow
+
+**Run the modular version:**
+```bash
+./shipnode help
+./shipnode init
+./shipnode deploy
+```
+
+**Test individual modules:**
+```bash
+source lib/core.sh
+source lib/validation.sh
+validate_port "3000" && echo "Valid"
+```
+
+**Build the distributable:**
+```bash
+./build.sh
+# Creates: shipnode-bundled (single file for distribution)
+```
+
+---
+
+## Installation Options
 
 ## Installation Options
 
@@ -158,11 +223,11 @@ cd /path/to/shipnode
 
 ## Next Steps
 
-After installation:
+### For Users (Installed via Installer)
 
 1. **Read the documentation**
    ```bash
-   cat ~/Code/Labs/shipnode/README.md
+   cat ~/.shipnode/README.md  # or /opt/shipnode/README.md
    ```
 
 2. **Initialize a project**
@@ -176,7 +241,35 @@ After installation:
    shipnode deploy
    ```
 
+### For Developers (Cloned from Source)
+
+1. **Explore the modular structure**
+   ```bash
+   ls -la lib/
+   cat ARCHITECTURE.md
+   ```
+
+2. **Run the modular version**
+   ```bash
+   ./shipnode help
+   ./shipnode init
+   ```
+
+3. **Make changes and test immediately**
+   ```bash
+   # Edit lib/commands/deploy.sh
+   ./shipnode deploy  # Changes are active immediately
+   ```
+
+4. **Build the distributable**
+   ```bash
+   ./build.sh
+   # Creates: shipnode-bundled (for distribution)
+   ```
+
 ## Updating
+
+### For Users (Installed via Installer)
 
 To update to the latest version, simply download and run the installer again:
 
@@ -184,9 +277,84 @@ To update to the latest version, simply download and run the installer again:
 curl -fsSL https://github.com/devalade/shipnode/releases/latest/download/shipnode-installer.sh | bash
 ```
 
+### For Developers (Cloned from Source)
+
+Pull the latest changes and continue using the modular version:
+
+```bash
+cd shipnode
+git pull origin main
+./shipnode help
+```
+
+---
+
+## Development Workflow
+
+### Quick Start for Contributors
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/devalade/shipnode.git
+   cd shipnode
+   ```
+
+2. **Understand the structure**
+   ```bash
+   cat ARCHITECTURE.md
+   ```
+
+3. **Make a change**
+   ```bash
+   # Edit any file in lib/
+   vim lib/commands/deploy.sh
+   ```
+
+4. **Test immediately**
+   ```bash
+   ./shipnode deploy
+   # Changes are live without rebuilding!
+   ```
+
+5. **Build for distribution (optional)**
+   ```bash
+   ./build.sh
+   # Creates: shipnode-bundled
+   ```
+
+### Testing Individual Modules
+
+Test modules in isolation:
+
+```bash
+# Test validation module
+source lib/core.sh
+source lib/validation.sh
+
+validate_port "3000" && echo "Valid port"
+validate_port "70000" && echo "Invalid port"
+
+validate_ip_or_hostname "192.168.1.1" && echo "Valid IP"
+validate_ip_or_hostname "example.com" && echo "Valid hostname"
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes in `lib/`
+4. Test with `./shipnode`
+5. Run `./build.sh` to verify bundling works
+6. Submit a pull request
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed module documentation.
+
+---
+
 ## Support
 
 If you encounter issues:
 1. Check the [README.md](README.md)
-2. Report issues: https://github.com/devalade/shipnode/issues
-3. Check installation: `which shipnode` and `shipnode help`
+2. Read [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
+3. Report issues: https://github.com/devalade/shipnode/issues
+4. Check installation: `which shipnode` and `shipnode help`
