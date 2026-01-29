@@ -19,6 +19,7 @@ source "$LIB_DIR/users.sh"
 source "$LIB_DIR/framework.sh"
 source "$LIB_DIR/validation.sh"
 source "$LIB_DIR/prompts.sh"
+source "$LIB_DIR/templates.sh"
 
 # Source command modules
 source "$LIB_DIR/commands/config.sh"

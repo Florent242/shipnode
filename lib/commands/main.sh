@@ -1,7 +1,7 @@
 main() {
     case "${1:-}" in
         init)
-            cmd_init "$2"
+            cmd_init "$2" "$3"
             ;;
         setup)
             cmd_setup

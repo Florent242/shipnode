@@ -5,9 +5,11 @@ ShipNode v$VERSION - Simple Node.js Deployment Tool
 Usage: shipnode <command> [options]
 
 Commands:
-    init                     Create shipnode.conf (interactive wizard)
-    init --non-interactive   Create basic shipnode.conf without prompts
-    setup                    First-time server setup (Node, PM2, Caddy, jq)
+    init                        Create shipnode.conf (interactive wizard)
+    init --template <name>      Create config from framework template
+    init --list-templates       List available framework templates
+    init --non-interactive      Create basic shipnode.conf without prompts
+    setup                       First-time server setup (Node, PM2, Caddy, jq)
     deploy              Deploy the application
     deploy --skip-build Deploy without running build step
     doctor              Run pre-flight diagnostic checks
@@ -44,21 +46,32 @@ User Provisioning:
     Create users.yml with user definitions, then run 'shipnode user sync'.
     Generate password hashes with 'shipnode mkpasswd'.
 
+Templates:
+    Use framework templates to skip auto-detection and get preset configurations:
+
+    Backend:     express, nestjs, fastify, koa, hapi, hono, adonisjs
+    Fullstack:   nextjs, nuxt, remix, astro
+    Frontend:    react, vue, svelte, angular, solid, custom
+
 Examples:
-    shipnode init               # Create config file
-    shipnode setup              # Setup server (first time)
-    shipnode doctor             # Run diagnostics
-    shipnode deploy             # Deploy your app
-    shipnode env                # Upload .env file to server
-    shipnode unlock             # Clear stuck deployment lock
-    shipnode rollback           # Rollback to previous release
-    shipnode rollback 2         # Rollback 2 releases back
-    shipnode releases           # List all releases
-    shipnode migrate            # Migrate to release structure
-    shipnode mkpasswd           # Generate password hash
-    shipnode user sync          # Provision users from users.yml
-    shipnode user list          # List provisioned users
-    shipnode user remove alice  # Revoke access for alice
+    shipnode init                      # Create config file
+    shipnode init --template express   # Use Express.js template
+    shipnode init --template nextjs    # Use Next.js template
+    shipnode init --template react     # Use React template
+    shipnode init --list-templates     # List all available templates
+    shipnode setup                     # Setup server (first time)
+    shipnode doctor                    # Run diagnostics
+    shipnode deploy                    # Deploy your app
+    shipnode env                       # Upload .env file to server
+    shipnode unlock                    # Clear stuck deployment lock
+    shipnode rollback                  # Rollback to previous release
+    shipnode rollback 2                # Rollback 2 releases back
+    shipnode releases                  # List all releases
+    shipnode migrate                   # Migrate to release structure
+    shipnode mkpasswd                  # Generate password hash
+    shipnode user sync                 # Provision users from users.yml
+    shipnode user list                 # List provisioned users
+    shipnode user remove alice         # Revoke access for alice
 
 EOF
 }
