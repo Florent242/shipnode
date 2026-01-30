@@ -6,6 +6,14 @@ load_config() {
 
     info "Loading configuration..."
 
+    # Source .env first if it exists (allows shipnode.conf to reference env vars)
+    if [ -f ".env" ]; then
+        info "Loading environment variables from .env..."
+        set -a
+        source .env 2>/dev/null || warn "Failed to parse .env file"
+        set +a
+    fi
+
     # Source the config file with error handling
     set -a
     if ! source shipnode.conf 2>&1; then

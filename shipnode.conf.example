@@ -111,4 +111,7 @@ DB_NAME=myapp_db
 DB_USER=myapp_user
 
 # Database password for the user
-DB_PASSWORD=change_me_in_production
+# You can reference .env variables directly:
+#   DB_PASSWORD=$DB_PASSWORD
+# Or use defaults: DB_PASSWORD=${DB_PASSWORD:-fallback_value}
+DB_PASSWORD=${DB_PASSWORD:-}
