@@ -135,7 +135,9 @@ run_pre_deploy_hook() {
     info "Running pre-deploy hook: $hook_script"
     
     # Copy hook script to release directory
-    scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$release_path/.shipnode-pre-deploy.sh" > /dev/null 2>&1
+    if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$release_path/.shipnode-pre-deploy.sh" 2>&1; then
+        error "Failed to copy pre-deploy hook to server"
+    fi
     
     # Execute hook on remote server
     local result
@@ -186,7 +188,10 @@ run_post_deploy_hook() {
     info "Running post-deploy hook: $hook_script"
     
     # Copy hook script to current directory
-    scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$current_path/.shipnode-post-deploy.sh" > /dev/null 2>&1
+    if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$current_path/.shipnode-post-deploy.sh" 2>&1; then
+        warn "Failed to copy post-deploy hook to server"
+        return 1
+    fi
     
     # Execute hook on remote server
     local result
