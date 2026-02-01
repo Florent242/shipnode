@@ -10,7 +10,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # ShipNode version
-VERSION="1.1.0"
+VERSION="1.1.1"
 
 # Helper functions
 error() {
