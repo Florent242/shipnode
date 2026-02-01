@@ -4,7 +4,7 @@ cmd_unlock() {
     info "Checking for deployment lock on $SSH_USER@$SSH_HOST..."
 
     local lock_info
-    lock_info=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -s "$REMOTE_PATH" << 'ENDSSH'
+    lock_info=$(remote_exec bash -s "$REMOTE_PATH" << 'ENDSSH'
         REMOTE_PATH="$1"
         LOCK_FILE="$REMOTE_PATH/.shipnode/deploy.lock"
 
@@ -33,7 +33,7 @@ ENDSSH
         return 0
     fi
 
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "rm -f $REMOTE_PATH/.shipnode/deploy.lock"
+    remote_exec "rm -f $REMOTE_PATH/.shipnode/deploy.lock"
     success "Deployment lock cleared"
 }
 

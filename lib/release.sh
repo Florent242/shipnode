@@ -8,7 +8,7 @@ get_release_path() {
 }
 
 setup_release_structure() {
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         mkdir -p $REMOTE_PATH/{releases,shared,.shipnode}
         if [ ! -f $REMOTE_PATH/.shipnode/releases.json ]; then
             echo "[]" > $REMOTE_PATH/.shipnode/releases.json
@@ -18,7 +18,7 @@ ENDSSH
 
 acquire_deploy_lock() {
     local result
-    result=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -s "$REMOTE_PATH" << 'ENDSSH'
+    result=$(remote_exec bash -s "$REMOTE_PATH" << 'ENDSSH'
         REMOTE_PATH="$1"
         mkdir -p "$REMOTE_PATH/.shipnode"
         LOCK_FILE="$REMOTE_PATH/.shipnode/deploy.lock"
@@ -47,12 +47,12 @@ ENDSSH
 }
 
 release_deploy_lock() {
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "rm -f $REMOTE_PATH/.shipnode/deploy.lock" || true
+    remote_exec "rm -f $REMOTE_PATH/.shipnode/deploy.lock" || true
 }
 
 switch_symlink() {
     local release_path=$1
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         cd $REMOTE_PATH
         ln -sfn $release_path current.tmp
         mv -Tf current.tmp current
@@ -68,7 +68,7 @@ perform_health_check() {
     info "Running health check (${max_retries} retries, ${timeout}s timeout)..."
 
     for i in $(seq 1 $max_retries); do
-        if ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "timeout $timeout curl -sf http://localhost:$port$path" > /dev/null 2>&1; then
+        if remote_exec "timeout $timeout curl -sf http://localhost:$port$path" > /dev/null 2>&1; then
             success "Health check passed"
             return 0
         fi
@@ -83,7 +83,7 @@ perform_health_check() {
 record_release() {
     local timestamp=$1
     local status=$2
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         cd $REMOTE_PATH/.shipnode
         CURRENT_DATE=\$(date -Is)
         jq ". + [{\"timestamp\":\"$timestamp\",\"date\":\"\$CURRENT_DATE\",\"status\":\"$status\"}]" releases.json > releases.json.tmp
@@ -92,7 +92,7 @@ ENDSSH
 }
 
 get_previous_release() {
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         cd $REMOTE_PATH/.shipnode
         cat releases.json | jq -r '.[-2].timestamp // empty'
 ENDSSH
@@ -100,7 +100,7 @@ ENDSSH
 
 cleanup_old_releases() {
     local keep=${KEEP_RELEASES:-5}
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         cd $REMOTE_PATH/releases
         ls -t | tail -n +$((keep + 1)) | xargs -r rm -rf
 ENDSSH
@@ -115,7 +115,7 @@ rollback_to_release() {
     switch_symlink "$release_path"
 
     if [ "$APP_TYPE" = "backend" ]; then
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+        remote_exec bash << ENDSSH
             set -e
             pm2 startOrReload $REMOTE_PATH/shared/ecosystem.config.cjs --update-env
             pm2 save
@@ -139,13 +139,13 @@ run_pre_deploy_hook() {
     info "Running pre-deploy hook: $hook_script"
 
     # Copy hook script to release directory
-    if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$release_path/.shipnode-pre-deploy.sh" 2>&1; then
+    if ! remote_copy "$hook_script" "$SSH_USER@$SSH_HOST:$release_path/.shipnode-pre-deploy.sh" 2>&1; then
         error "Failed to copy pre-deploy hook to server"
         return 1
     fi
 
     # Execute hook on remote server with output streaming (not captured)
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         cd $release_path
 
@@ -188,13 +188,13 @@ run_post_deploy_hook() {
     info "Running post-deploy hook: $hook_script"
 
     # Copy hook script to current directory
-    if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$current_path/.shipnode-post-deploy.sh" 2>&1; then
+    if ! remote_copy "$hook_script" "$SSH_USER@$SSH_HOST:$current_path/.shipnode-post-deploy.sh" 2>&1; then
         warn "Failed to copy post-deploy hook to server"
         return 1
     fi
 
     # Execute hook on remote server with output streaming (not captured)
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         cd $current_path
 

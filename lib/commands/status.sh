@@ -3,10 +3,10 @@ cmd_status() {
 
     if [ "$APP_TYPE" = "backend" ]; then
         info "Checking PM2 status for $PM2_APP_NAME..."
-        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 status $PM2_APP_NAME"
+        remote_exec "pm2 status $PM2_APP_NAME"
     else
         info "Checking frontend files..."
-        ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "ls -lh $REMOTE_PATH | head -20"
+        remote_exec "ls -lh $REMOTE_PATH | head -20"
     fi
 }
 
@@ -19,7 +19,7 @@ cmd_logs() {
     fi
 
     info "Streaming logs for $PM2_APP_NAME (Ctrl+C to exit)..."
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 logs $PM2_APP_NAME"
+    ssh_cmd -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 logs $PM2_APP_NAME"
 }
 
 # Restart app (backend only)
@@ -31,7 +31,7 @@ cmd_restart() {
     fi
 
     info "Restarting $PM2_APP_NAME..."
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 restart $PM2_APP_NAME"
+    remote_exec "pm2 restart $PM2_APP_NAME"
     success "App restarted"
 }
 
@@ -44,7 +44,7 @@ cmd_stop() {
     fi
 
     info "Stopping $PM2_APP_NAME..."
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 stop $PM2_APP_NAME"
+    remote_exec "pm2 stop $PM2_APP_NAME"
     success "App stopped"
 }
 

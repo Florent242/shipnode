@@ -228,7 +228,7 @@ create_remote_user() {
     local password=$3
 
     # Check if user exists
-    local user_exists=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "id -u $username >/dev/null 2>&1 && echo 'yes' || echo 'no'")
+    local user_exists=$(remote_exec "id -u $username >/dev/null 2>&1 && echo 'yes' || echo 'no'")
 
     if [ "$user_exists" = "yes" ]; then
         echo "EXISTS"
@@ -238,13 +238,13 @@ create_remote_user() {
     # Create user with password or without
     if [ -n "$password" ]; then
         # Create user with encrypted password, force password change on first login
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+        remote_exec bash << ENDSSH
             sudo useradd -m -s /bin/bash -p '$password' -c '$email' $username
             sudo chage -d 0 $username
 ENDSSH
     else
         # Create user without password (SSH key auth only)
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+        remote_exec bash << ENDSSH
             sudo useradd -m -s /bin/bash -c '$email' $username
             sudo passwd -l $username
 ENDSSH
@@ -257,7 +257,7 @@ ENDSSH
 setup_user_ssh_dir() {
     local username=$1
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         sudo mkdir -p /home/$username/.ssh
         sudo touch /home/$username/.ssh/authorized_keys
         sudo chmod 700 /home/$username/.ssh
@@ -271,7 +271,7 @@ add_user_ssh_key() {
     local username=$1
     local ssh_key=$2
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         echo '$ssh_key' | sudo tee -a /home/$username/.ssh/authorized_keys > /dev/null
         sudo chmod 600 /home/$username/.ssh/authorized_keys
         sudo chown $username:$username /home/$username/.ssh/authorized_keys
@@ -282,7 +282,7 @@ ENDSSH
 grant_deploy_permissions() {
     local username=$1
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         # Add user to www-data group for web deployment access
         sudo usermod -aG www-data $username 2>/dev/null || true
 
@@ -313,7 +313,7 @@ ENDSSH
 grant_sudo_access() {
     local username=$1
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         # Add user to sudo group
         sudo usermod -aG sudo $username
 
@@ -330,7 +330,7 @@ ENDSSH
 revoke_user_access() {
     local username=$1
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         # Remove from groups
         sudo deluser $username sudo 2>/dev/null || true
         sudo deluser $username www-data 2>/dev/null || true

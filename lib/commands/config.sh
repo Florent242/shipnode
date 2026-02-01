@@ -58,6 +58,12 @@ load_config() {
             error "BACKEND_PORT required for backend apps"
         fi
     fi
+
+    # Start SSH multiplex connection once per session
+    if [ -z "${_SHIPNODE_MULTIPLEX_STARTED:-}" ]; then
+        start_ssh_multiplex
+        _SHIPNODE_MULTIPLEX_STARTED=1
+    fi
 }
 
 # Interactive users.yml generation

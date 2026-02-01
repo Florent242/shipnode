@@ -14,16 +14,17 @@ cmd_deploy() {
     info "Deploying $APP_TYPE to $SSH_USER@$SSH_HOST..."
 
     # Create remote directory
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_PATH"
+    remote_exec "mkdir -p $REMOTE_PATH"
 
     if [ "$APP_TYPE" = "backend" ]; then
-        deploy_backend
+        deploy_backend "$SKIP_BUILD"
     else
         deploy_frontend "$SKIP_BUILD"
     fi
 }
 
 deploy_backend() {
+    local SKIP_BUILD=$1
     info "Deploying backend application..."
 
     # Check if package.json exists
@@ -54,36 +55,51 @@ Deployment blocked to prevent port conflict."
     fi
 
     if [ "$ZERO_DOWNTIME" = "true" ]; then
-        deploy_backend_zero_downtime
+        deploy_backend_zero_downtime "$SKIP_BUILD"
     else
-        deploy_backend_legacy
+        deploy_backend_legacy "$SKIP_BUILD"
     fi
 }
 
 deploy_backend_legacy() {
+    local SKIP_BUILD=$1
     info "Using legacy deployment (non-zero-downtime)..."
 
     # Rsync application files
     info "Syncing files to server..."
-    rsync -avz --progress \
+    remote_rsync -avz --progress \
         --exclude 'node_modules' \
         --exclude '.env' \
         --exclude '.git' \
         --exclude '.gitignore' \
         --exclude 'shipnode.conf' \
         --exclude '*.log' \
-        -e "ssh -p $SSH_PORT" \
         ./ "$SSH_USER@$SSH_HOST:$REMOTE_PATH/"
 
     success "Files synced"
 
-    # Install dependencies
+    # Install dependencies and build
     info "Installing dependencies..."
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         cd $REMOTE_PATH
         $PKG_INSTALL_CMD
+
+        # Build if package.json has build script and not skipping
+        if [ "$SKIP_BUILD" = false ]; then
+            if jq -e '.scripts.build' package.json >/dev/null 2>&1; then
+                echo "Building application..."
+                $PKG_RUN_CMD
+            fi
+        fi
+
+        # Link .env into build/ for frameworks that resolve from build dir (AdonisJS)
+        if [ -d build ] && [ -f .env ]; then
+            ln -sf $REMOTE_PATH/.env build/.env
+        fi
 ENDSSH
+
+    success "Dependencies installed and build complete"
 
     # Run pre-deploy hook
     if ! run_pre_deploy_hook "$REMOTE_PATH"; then
@@ -96,9 +112,9 @@ ENDSSH
     # Always regenerate ecosystem file to ensure it's up to date
     info "Generating PM2 ecosystem config..."
     generate_ecosystem_file "$PKG_MANAGER" "$PM2_APP_NAME" "$REMOTE_PATH" \
-        | ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "cat > $REMOTE_PATH/ecosystem.config.cjs"
+        | remote_exec "cat > $REMOTE_PATH/ecosystem.config.cjs"
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         pm2 startOrReload $REMOTE_PATH/ecosystem.config.cjs --update-env
         pm2 save
@@ -118,12 +134,13 @@ ENDSSH
 }
 
 deploy_backend_zero_downtime() {
+    local SKIP_BUILD=$1
     info "Using zero-downtime deployment..."
 
     # Acquire deployment lock
     info "Acquiring deployment lock..."
     acquire_deploy_lock
-    trap release_deploy_lock EXIT
+    trap 'release_deploy_lock; stop_ssh_multiplex' EXIT
     success "Lock acquired"
 
     # Generate release timestamp
@@ -142,21 +159,20 @@ deploy_backend_zero_downtime() {
 
     # Rsync to new release directory
     info "Syncing files to release directory..."
-    rsync -avz --progress \
+    remote_rsync -avz --progress \
         --exclude 'node_modules' \
         --exclude '.env' \
         --exclude '.git' \
         --exclude '.gitignore' \
         --exclude 'shipnode.conf' \
         --exclude '*.log' \
-        -e "ssh -p $SSH_PORT" \
         ./ "$SSH_USER@$SSH_HOST:$release_path/"
 
     success "Files synced to $release_path"
 
-    # Link shared resources and install dependencies
+    # Link shared resources, install dependencies, and build
     info "Setting up release environment..."
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         cd $release_path
 
@@ -167,6 +183,19 @@ deploy_backend_zero_downtime() {
 
         # Install dependencies
         $PKG_INSTALL_CMD
+
+        # Build if package.json has build script and not skipping
+        if [ "$SKIP_BUILD" = false ]; then
+            if jq -e '.scripts.build' package.json >/dev/null 2>&1; then
+                echo "Building application..."
+                $PKG_RUN_CMD
+            fi
+        fi
+
+        # Link .env into build/ for frameworks that resolve from build dir (AdonisJS)
+        if [ -d build ] && [ -f .env ]; then
+            ln -sf $release_path/.env build/.env
+        fi
 ENDSSH
 
     success "Release prepared"
@@ -186,9 +215,9 @@ ENDSSH
     # Always regenerate ecosystem file to ensure it's up to date
     info "Generating PM2 ecosystem config..."
     generate_ecosystem_file "$PKG_MANAGER" "$PM2_APP_NAME" "$REMOTE_PATH/current" \
-        | ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "cat > $REMOTE_PATH/shared/ecosystem.config.cjs"
+        | remote_exec "cat > $REMOTE_PATH/shared/ecosystem.config.cjs"
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         pm2 startOrReload $REMOTE_PATH/shared/ecosystem.config.cjs --update-env
         pm2 save
@@ -262,8 +291,7 @@ deploy_frontend_legacy() {
 
     # Rsync build directory
     info "Syncing $BUILD_DIR to server..."
-    rsync -avz --progress --delete \
-        -e "ssh -p $SSH_PORT" \
+    remote_rsync -avz --progress --delete \
         "$BUILD_DIR/" "$SSH_USER@$SSH_HOST:$REMOTE_PATH/"
 
     success "Frontend deployed"
@@ -291,7 +319,7 @@ deploy_frontend_zero_downtime() {
 
     # Acquire deployment lock
     acquire_deploy_lock
-    trap release_deploy_lock EXIT
+    trap 'release_deploy_lock; stop_ssh_multiplex' EXIT
 
     # Generate release timestamp
     local timestamp=$(generate_release_timestamp)
@@ -304,8 +332,7 @@ deploy_frontend_zero_downtime() {
 
     # Rsync build output to release directory
     info "Syncing $BUILD_DIR to release directory..."
-    rsync -avz --progress --delete \
-        -e "ssh -p $SSH_PORT" \
+    remote_rsync -avz --progress --delete \
         "$BUILD_DIR/" "$SSH_USER@$SSH_HOST:$release_path/"
 
     success "Files synced to $release_path"
@@ -340,7 +367,7 @@ deploy_frontend_zero_downtime() {
 configure_caddy_backend() {
     info "Configuring Caddy reverse proxy for $DOMAIN..."
 
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
 
         # Create conf.d directory for per-app configs
@@ -394,7 +421,7 @@ configure_caddy_frontend() {
     # Derive app name from remote path for config file naming
     local APP_NAME=$(basename "$REMOTE_PATH")
 
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
 
         # Create conf.d directory for per-app configs

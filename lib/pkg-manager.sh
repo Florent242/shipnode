@@ -111,7 +111,7 @@ install_remote_pkg_manager() {
 
     info "Installing $pkg_manager on remote server..."
 
-    if ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    if remote_exec bash << ENDSSH
         set -e
 
         # Detect if running as root and set sudo prefix
@@ -173,7 +173,7 @@ verify_remote_pkg_manager() {
 
     info "Verifying $pkg_manager is installed on remote server..."
 
-    if ! ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "command -v $pkg_manager > /dev/null 2>&1"; then
+    if ! remote_exec "command -v $pkg_manager > /dev/null 2>&1"; then
         error "$pkg_manager is not installed on the remote server"
         echo ""
         echo "Please install $pkg_manager on the remote server:"

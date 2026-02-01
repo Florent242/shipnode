@@ -12,7 +12,7 @@ setup_postgresql() {
 
 	info "Setting up PostgreSQL..."
 
-	ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=5 -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+	ssh_cmd -o ServerAliveInterval=30 -o ServerAliveCountMax=5 -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
 		DB_NAME="$DB_NAME" \
 		DB_USER="$DB_USER" \
 		DB_PASSWORD="$DB_PASSWORD" \

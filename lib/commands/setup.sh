@@ -4,7 +4,7 @@ cmd_setup() {
     info "Setting up server $SSH_USER@$SSH_HOST..."
 
     # Check SSH connection
-    if ! ssh -o ConnectTimeout=10 -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "exit"; then
+    if ! remote_exec "exit"; then
         error "Cannot connect to $SSH_USER@$SSH_HOST:$SSH_PORT"
     fi
 
@@ -34,7 +34,7 @@ cmd_setup() {
 
     info "Node.js version: $node_version"
 
-    ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << 'ENDSSH'
+    remote_exec bash << 'ENDSSH'
         NODE_VERSION="'"$node_version"'"
         set -e
 

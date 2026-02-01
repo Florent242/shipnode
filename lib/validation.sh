@@ -114,7 +114,7 @@ test_ssh_connection() {
     local port=${3:-22}
     
     # Try connection with 5 second timeout
-    if ssh -o ConnectTimeout=5 -o BatchMode=yes -p "$port" "$user@$host" "exit" 2>/dev/null; then
+    if ssh_cmd -o ConnectTimeout=5 -o BatchMode=yes -p "$port" "$user@$host" "exit" 2>/dev/null; then
         return 0
     fi
     
@@ -140,7 +140,7 @@ check_remote_port_available() {
     
     # Check if anything is listening on the port
     local result
-    result=$(ssh -o ConnectTimeout=5 -p "$ssh_port" "$user@$host" "
+    result=$(ssh_cmd -o ConnectTimeout=5 -p "$ssh_port" "$user@$host" "
         if command -v ss >/dev/null 2>&1; then
             ss -tln | grep -q \":$port \"
         elif command -v netstat >/dev/null 2>&1; then
@@ -180,7 +180,7 @@ get_remote_port_process() {
     
     # Get the process using the port
     local process
-    process=$(ssh -o ConnectTimeout=5 -p "$ssh_port" "$user@$host" "
+    process=$(ssh_cmd -o ConnectTimeout=5 -p "$ssh_port" "$user@$host" "
         # Try to find PID using the port, then get process name
         if command -v ss >/dev/null 2>&1; then
             pid=\$(ss -tlnp | grep \":$port \" | head -1 | grep -oP 'pid=\K[0-9]+')

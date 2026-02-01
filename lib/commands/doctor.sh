@@ -158,7 +158,7 @@ check_ssh_connection() {
     local ssh_port="${SSH_PORT:-22}"
 
     # Test connection with 5 second timeout
-    if ssh -o BatchMode=yes -o ConnectTimeout=5 -p "$ssh_port" "$SSH_USER@$SSH_HOST" "exit" &>/dev/null; then
+    if remote_exec "exit" &>/dev/null; then
         echo "  ✓ SSH connection successful ($SSH_USER@$SSH_HOST:$ssh_port)"
         return 0
     else
@@ -182,7 +182,7 @@ check_remote_environment() {
 
     # Single batched SSH call for all remote checks
     local remote_output
-    remote_output=$(ssh -p "$ssh_port" "$SSH_USER@$SSH_HOST" bash << 'REMOTE_CHECKS'
+    remote_output=$(remote_exec bash << 'REMOTE_CHECKS'
         # Check node
         if command -v node &> /dev/null; then
             echo "NODE_OK:$(node --version)"

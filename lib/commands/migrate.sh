@@ -27,12 +27,12 @@ cmd_migrate() {
     # Generate ecosystem file for backend apps (always regenerate to ensure it's up to date)
     if [ "$APP_TYPE" = "backend" ]; then
         info "Generating PM2 ecosystem config..."
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_PATH/shared"
+        remote_exec "mkdir -p $REMOTE_PATH/shared"
         generate_ecosystem_file "$PKG_MANAGER" "$PM2_APP_NAME" "$REMOTE_PATH/current" \
-            | ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "cat > $REMOTE_PATH/shared/ecosystem.config.cjs"
+            | remote_exec "cat > $REMOTE_PATH/shared/ecosystem.config.cjs"
     fi
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         set -e
         cd $REMOTE_PATH
 

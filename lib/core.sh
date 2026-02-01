@@ -12,6 +12,40 @@ NC='\033[0m' # No Color
 # ShipNode version
 VERSION="1.1.1"
 
+# SSH multiplexing for connection reuse
+SSH_CONTROL_PATH="/tmp/shipnode-ssh-%r@%h:%p"
+
+start_ssh_multiplex() {
+    if [ -n "${SSH_USER:-}" ] && [ -n "${SSH_HOST:-}" ]; then
+        ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" \
+            -o ControlPersist=300 -fN -p "${SSH_PORT:-22}" "$SSH_USER@$SSH_HOST" 2>/dev/null || true
+    fi
+}
+
+stop_ssh_multiplex() {
+    ssh -o ControlPath="$SSH_CONTROL_PATH" -O exit \
+        -p "${SSH_PORT:-22}" "${SSH_USER:-}@${SSH_HOST:-}" 2>/dev/null || true
+}
+
+ssh_cmd() {
+    ssh -o ControlPath="$SSH_CONTROL_PATH" "$@"
+}
+
+# High-level SSH helpers using multiplexed connection
+remote_exec() {
+    ssh_cmd -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$@"
+}
+
+remote_copy() {
+    scp -o ControlPath="$SSH_CONTROL_PATH" -P "$SSH_PORT" "$@"
+}
+
+remote_rsync() {
+    rsync -e "ssh -o ControlPath=$SSH_CONTROL_PATH -p $SSH_PORT" "$@"
+}
+
+export SSH_CONTROL_PATH
+
 # Helper functions
 error() {
     echo -e "${RED}Error: $1${NC}" >&2

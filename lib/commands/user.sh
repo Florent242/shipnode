@@ -10,10 +10,10 @@ cmd_user_sync() {
     info "Syncing users from users.yml..."
 
     # Ensure .shipnode directory exists
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $REMOTE_PATH/.shipnode"
+    remote_exec "mkdir -p $REMOTE_PATH/.shipnode"
 
     # Initialize users.json if it doesn't exist
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         if [ ! -f $REMOTE_PATH/.shipnode/users.json ]; then
             echo '{"users":[]}' > $REMOTE_PATH/.shipnode/users.json
         fi
@@ -111,7 +111,7 @@ ENDSSH
             fi
 
             # Record user in users.json
-            ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+            remote_exec bash << ENDSSH
                 cd $REMOTE_PATH/.shipnode
                 CURRENT_DATE=\$(date -Is)
                 jq ".users += [{\"username\":\"$username\",\"email\":\"$email\",\"auth\":\"$auth_method\",\"sudo\":$sudo,\"created_at\":\"\$CURRENT_DATE\"}]" users.json > users.json.tmp
@@ -143,7 +143,7 @@ cmd_user_list() {
     info "Listing provisioned users..."
 
     # Check if users.json exists
-    local has_users=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "[ -f $REMOTE_PATH/.shipnode/users.json ] && echo 'yes' || echo 'no'")
+    local has_users=$(remote_exec "[ -f $REMOTE_PATH/.shipnode/users.json ] && echo 'yes' || echo 'no'")
 
     if [ "$has_users" = "no" ]; then
         warn "No users provisioned yet. Run 'shipnode user sync' first."
@@ -151,7 +151,7 @@ cmd_user_list() {
     fi
 
     # Fetch and display users
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         echo ""
         printf "%-15s %-30s %-12s %-8s %s\n" "USERNAME" "EMAIL" "AUTH" "SUDO" "CREATED"
         echo "==================================================================================="
@@ -194,7 +194,7 @@ cmd_user_remove() {
     revoke_user_access "$username"
 
     # Remove from users.json
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         if [ -f $REMOTE_PATH/.shipnode/users.json ]; then
             cd $REMOTE_PATH/.shipnode
             jq ".users = [.users[] | select(.username != \"$username\")]" users.json > users.json.tmp

@@ -10,7 +10,7 @@ cmd_rollback() {
     info "Fetching release history..."
 
     # Get target release
-    local target_release=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    local target_release=$(remote_exec bash << ENDSSH
         cd $REMOTE_PATH/.shipnode
         cat releases.json | jq -r ".[-$((steps_back + 1))].timestamp // empty"
 ENDSSH
@@ -55,7 +55,7 @@ cmd_releases() {
 
     info "Fetching releases..."
 
-    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+    remote_exec bash << ENDSSH
         cd $REMOTE_PATH
 
         # Get current release
