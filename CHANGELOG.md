@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### ORM Detection
+- **ORM auto-detection**: `detect_orm()` identifies Prisma, Drizzle, TypeORM, Sequelize, Knex, Mongoose, and AdonisJS Lucid from package.json dependencies
+- **Migration command generation**: Returns ORM-specific migration and generate commands for deployment hooks
+
+#### Smart Deployment Hooks
+- **Auto-generated hooks**: `shipnode init` creates `.shipnode/pre-deploy.sh` and `post-deploy.sh` with ORM-aware templates
+- **ORM-specific migrations**: Pre-deploy hook includes commented migration commands for 6 ORMs, auto-uncommented for detected ORM
+- **Shared environment access**: Hooks can access `$SHARED_ENV_PATH` for database credentials
+
+#### User Provisioning
+- `create_remote_user()`: Creates deployment users on remote server
+- `setup_user_ssh_dir()`: Configures SSH directory with correct permissions
+- `add_user_ssh_key()`: Adds authorized SSH keys for user access
+- `grant_deploy_permissions()`: Sets up deploy path ownership
+- `grant_sudo_access()`: Configures passwordless sudo for PM2 and Caddy
+- `revoke_user_access()`: Removes users and cleans up SSH keys
+
 #### Interactive Initialization Wizard
 - **Framework auto-detection**: Automatically detects Express, NestJS, Fastify, Koa, Hapi, Hono, AdonisJS, Next.js, Nuxt, Remix, Astro, React, React Router, TanStack Router, Vue, Svelte, SolidJS, and Angular from package.json dependencies
 - **Smart defaults**: Auto-suggests app type (backend/frontend) based on detected framework
@@ -44,10 +61,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Non-blocking**: Wizard continues with classic prompts if Gum installation fails
 - **Gum wrappers**: `gum_input()`, `gum_choose()`, `gum_confirm()`, `gum_style()` functions with automatic fallback
 
+#### Port Conflict Detection
+- **Port conflict detection**: Deployment checks if backend port is already in use on remote server
+- **Smart redeployment**: Allows redeployment when port is owned by the same PM2 app; blocks when owned by a different process
+- **Suggested ports**: Shows available alternative ports when conflict is detected
+
+#### Local .env Support
+- **ENV_FILE support**: `load_config()` sources local `.env` before loading `shipnode.conf` — config values can reference env vars (e.g. `DB_PASSWORD=${DB_PASSWORD}`)
+
 ### Changed
-- `shipnode init` now launches interactive wizard by default
-- Added `--non-interactive` flag to preserve v1.1.0 behavior
-- Help command updated with new init options and usage examples
+- **Multi-app Caddy support**: Switched from monolithic `/etc/caddy/Caddyfile` to per-app configs in `/etc/caddy/conf.d/<app>.caddy` — supports multiple apps on one server
+- **Development dependencies included**: Dependencies now installed without `--production`/`--prod`/`--omit=dev` flags so build tools (TypeScript, Prisma CLI, etc.) are available during deployment
+- **Interactive init by default**: `shipnode init` now launches interactive wizard by default; use `--non-interactive` flag for legacy behavior
+- **Expanded pre-deploy template**: Pre-deploy hook template includes commented migration commands for 6 ORMs
+- **Hook documentation**: Rewrote hook documentation in `shipnode.conf.example` with `SHARED_ENV_PATH` usage
+- **Hooks source server .env**: Deployment hooks now source `shared/.env` on the server before execution — hooks use same env as the running app
+
+### Fixed
+- **Hook error handling**: Hook execution now checks SSH exit code instead of grepping output for "SUCCESS" — fixes masked failures
+- **Pre-deploy hook validation**: Added missing `return 1` after failed scp in pre-deploy hook template
+- **PM2 "Script not found" error**: Fixed ecosystem config template using `script: 'start'` instead of `script: 'npm', args: 'start'`; ecosystem file now always regenerated on deploy
+- **PM2 cwd path in zero-downtime deploy**: Fixed working directory pointing to wrong path
+- **Hook scp failures visible**: Show scp copy failure output instead of silently continuing
 
 ## [1.1.0] - 2026-01-24
 
