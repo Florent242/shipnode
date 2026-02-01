@@ -55,9 +55,9 @@ cmd_upgrade() {
     # Extract the installer (it's a self-extracting script)
     info "Extracting installer..."
 
-    # The installer has a base64 payload after __SHIPNODE_PAYLOAD__ marker
+    # The installer has a base64 payload after __ARCHIVE_BELOW__ marker
     # Extract and decode it
-    local payload_marker="__SHIPNODE_PAYLOAD__"
+    local payload_marker="__ARCHIVE_BELOW__"
     local payload_start
     payload_start=$(grep -n "^${payload_marker}$" "$temp_dir/shipnode-installer.sh" | head -n1 | cut -d: -f1)
 
@@ -73,8 +73,8 @@ cmd_upgrade() {
         error "Failed to extract installer payload"
     fi
 
-    # Verify extraction
-    if [ ! -f "$temp_dir/shipnode" ] || [ ! -d "$temp_dir/lib" ]; then
+    # Verify extraction (tar extracts into shipnode/ subdirectory)
+    if [ ! -f "$temp_dir/shipnode/shipnode" ] || [ ! -d "$temp_dir/shipnode/lib" ]; then
         rm -rf "$temp_dir"
         error "Extracted files are incomplete"
     fi
@@ -82,13 +82,13 @@ cmd_upgrade() {
     # Install to SHIPNODE_DIR (overwrite existing installation)
     info "Installing to $SHIPNODE_DIR..."
 
-    # Copy files
-    cp -r "$temp_dir/shipnode" "$SHIPNODE_DIR/" || {
+    # Copy files from the extracted shipnode/ subdirectory
+    cp -r "$temp_dir/shipnode/shipnode" "$SHIPNODE_DIR/" || {
         rm -rf "$temp_dir"
         error "Failed to copy shipnode entry point"
     }
 
-    cp -r "$temp_dir/lib" "$SHIPNODE_DIR/" || {
+    cp -r "$temp_dir/shipnode/lib" "$SHIPNODE_DIR/" || {
         rm -rf "$temp_dir"
         error "Failed to copy lib directory"
     }

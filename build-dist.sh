@@ -59,6 +59,16 @@ cat > "$DIST_DIR/$INSTALLER_NAME" << 'EOF'
 
 set -e
 
+# Detect pipe execution and save to temp file
+if [ ! -f "$0" ] || [ "$(basename "$0")" = "bash" ] || [ "$(basename "$0")" = "sh" ]; then
+    SELF_TEMP=$(mktemp)
+    cat > "$SELF_TEMP"
+    bash "$SELF_TEMP" "$@"
+    EXIT_CODE=$?
+    rm -f "$SELF_TEMP"
+    exit $EXIT_CODE
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -85,19 +95,20 @@ done
 # Extract embedded archive
 echo -e "${BLUE}→${NC} Extracting ShipNode..."
 
-# Get absolute path of this script before changing directory (portable for Linux and macOS)
-if command -v realpath &> /dev/null; then
-    SCRIPT_PATH="$(realpath "$0")"
+# Get absolute path of this script (after pipe detection, $0 is always a real file)
+if command -v readlink &> /dev/null && readlink -f "$0" &> /dev/null; then
+    # Linux: use readlink -f
+    SCRIPT_PATH="$(readlink -f "$0")"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS: construct absolute path manually since readlink -f doesn't exist
+    # macOS: readlink -f doesn't exist, construct absolute path manually
     if [ -L "$0" ]; then
         SCRIPT_PATH="$(cd "$(dirname "$0")" && cd "$(dirname "$(readlink "$0")")" && pwd)/$(basename "$(readlink "$0")")"
     else
         SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
     fi
 else
-    # Linux: use readlink -f
-    SCRIPT_PATH="$(readlink -f "$0")"
+    # Fallback
+    SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 fi
 
 # Create temp directory
