@@ -115,7 +115,19 @@ rollback_to_release() {
     switch_symlink "$release_path"
 
     if [ "$APP_TYPE" = "backend" ]; then
-        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "pm2 reload $PM2_APP_NAME"
+        # Delete and re-start to ensure PM2 picks up the rolled-back release cwd
+        local PKG_START_CMD=$(get_pkg_start_cmd "$PKG_MANAGER" "$PM2_APP_NAME")
+        ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+            set -e
+            cd $REMOTE_PATH/current
+            pm2 delete $PM2_APP_NAME 2>/dev/null || true
+            if [ -f ecosystem.config.js ]; then
+                pm2 start ecosystem.config.js
+            else
+                $PKG_START_CMD
+            fi
+            pm2 save
+ENDSSH
     fi
 
     success "Rolled back to $timestamp"
@@ -126,50 +138,46 @@ rollback_to_release() {
 run_pre_deploy_hook() {
     local release_path=$1
     local hook_script=${PRE_DEPLOY_SCRIPT:-".shipnode/pre-deploy.sh"}
-    
+
     # Check if hook script exists locally
     if [ ! -f "$hook_script" ]; then
         return 0
     fi
-    
+
     info "Running pre-deploy hook: $hook_script"
-    
+
     # Copy hook script to release directory
     if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$release_path/.shipnode-pre-deploy.sh" 2>&1; then
         error "Failed to copy pre-deploy hook to server"
+        return 1
     fi
-    
-    # Execute hook on remote server
-    local result
-    result=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+
+    # Execute hook on remote server with output streaming (not captured)
+    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
         cd $release_path
-        
+
         # Export environment variables for hook
         export RELEASE_PATH="$release_path"
         export REMOTE_PATH="$REMOTE_PATH"
         export PM2_APP_NAME="${PM2_APP_NAME:-}"
         export BACKEND_PORT="${BACKEND_PORT:-}"
         export SHARED_ENV_PATH="$REMOTE_PATH/shared/.env"
-        
+
         # Make hook executable and run it
         chmod +x .shipnode-pre-deploy.sh
-        if ./.shipnode-pre-deploy.sh; then
-            echo "SUCCESS"
-        else
-            echo "FAILED"
-        fi
-        
+        ./.shipnode-pre-deploy.sh
+
         # Cleanup hook script
         rm -f .shipnode-pre-deploy.sh
 ENDSSH
-    )
-    
-    if [[ "$result" == *"SUCCESS"* ]]; then
+
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
         success "Pre-deploy hook completed"
         return 0
     else
-        error "Pre-deploy hook failed"
+        error "Pre-deploy hook failed (exit code: $exit_code)"
         return 1
     fi
 }
@@ -179,51 +187,46 @@ ENDSSH
 run_post_deploy_hook() {
     local current_path="$REMOTE_PATH/current"
     local hook_script=${POST_DEPLOY_SCRIPT:-".shipnode/post-deploy.sh"}
-    
+
     # Check if hook script exists locally
     if [ ! -f "$hook_script" ]; then
         return 0
     fi
-    
+
     info "Running post-deploy hook: $hook_script"
-    
+
     # Copy hook script to current directory
     if ! scp -P "$SSH_PORT" "$hook_script" "$SSH_USER@$SSH_HOST:$current_path/.shipnode-post-deploy.sh" 2>&1; then
         warn "Failed to copy post-deploy hook to server"
         return 1
     fi
-    
-    # Execute hook on remote server
-    local result
-    result=$(ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
+
+    # Execute hook on remote server with output streaming (not captured)
+    ssh -T -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
         cd $current_path
-        
+
         # Export environment variables for hook
         export RELEASE_PATH="$current_path"
         export REMOTE_PATH="$REMOTE_PATH"
         export PM2_APP_NAME="${PM2_APP_NAME:-}"
         export BACKEND_PORT="${BACKEND_PORT:-}"
         export SHARED_ENV_PATH="$REMOTE_PATH/shared/.env"
-        
+
         # Make hook executable and run it
         chmod +x .shipnode-post-deploy.sh
-        if ./.shipnode-post-deploy.sh; then
-            echo "SUCCESS"
-        else
-            echo "FAILED"
-        fi
-        
+        ./.shipnode-post-deploy.sh
+
         # Cleanup hook script
         rm -f .shipnode-post-deploy.sh
 ENDSSH
-    )
-    
-    if [[ "$result" == *"SUCCESS"* ]]; then
+
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
         success "Post-deploy hook completed"
         return 0
     else
-        warn "Post-deploy hook failed (deployment still successful)"
+        warn "Post-deploy hook failed (deployment still successful, exit code: $exit_code)"
         return 1
     fi
 }

@@ -98,14 +98,13 @@ ENDSSH
         set -e
         cd $REMOTE_PATH
 
-        if pm2 describe $PM2_APP_NAME > /dev/null 2>&1; then
-            pm2 reload $PM2_APP_NAME
+        # Delete and re-start to ensure PM2 picks up the correct cwd
+        pm2 delete $PM2_APP_NAME 2>/dev/null || true
+
+        if [ -f ecosystem.config.js ]; then
+            pm2 start ecosystem.config.js
         else
-            if [ -f ecosystem.config.js ]; then
-                pm2 start ecosystem.config.js
-            else
-                $PKG_START_CMD
-            fi
+            $PKG_START_CMD
         fi
 
         pm2 save
@@ -197,14 +196,13 @@ ENDSSH
         set -e
         cd $REMOTE_PATH/current
 
-        if pm2 describe $PM2_APP_NAME > /dev/null 2>&1; then
-            pm2 reload $PM2_APP_NAME --update-env
+        # Delete and re-start to ensure PM2 picks up the new release cwd
+        pm2 delete $PM2_APP_NAME 2>/dev/null || true
+
+        if [ -f ecosystem.config.js ]; then
+            pm2 start ecosystem.config.js
         else
-            if [ -f ecosystem.config.js ]; then
-                pm2 start ecosystem.config.js
-            else
-                $PKG_START_CMD
-            fi
+            $PKG_START_CMD
         fi
 
         pm2 save
@@ -356,28 +354,42 @@ deploy_frontend_zero_downtime() {
 configure_caddy_backend() {
     info "Configuring Caddy reverse proxy for $DOMAIN..."
 
-    local CADDY_CONFIG="/etc/caddy/Caddyfile"
-
     ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
 
-        # Backup existing Caddyfile
-        [ -f $CADDY_CONFIG ] && cp $CADDY_CONFIG ${CADDY_CONFIG}.backup
+        # Create conf.d directory for per-app configs
+        mkdir -p /etc/caddy/conf.d
 
-        # Create Caddyfile
-        cat > $CADDY_CONFIG << 'EOF'
+        # Ensure main Caddyfile imports conf.d configs
+        if [ ! -f /etc/caddy/Caddyfile ]; then
+            cat > /etc/caddy/Caddyfile << 'MAIN_EOF'
+# ShipNode managed Caddyfile
+# Per-app configurations are in /etc/caddy/conf.d/
+
+import /etc/caddy/conf.d/*.caddy
+MAIN_EOF
+        elif ! grep -q "import /etc/caddy/conf.d/\*.caddy" /etc/caddy/Caddyfile 2>/dev/null; then
+            # Backup existing Caddyfile
+            cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.backup
+            # Add import if missing
+            echo "" >> /etc/caddy/Caddyfile
+            echo "import /etc/caddy/conf.d/*.caddy" >> /etc/caddy/Caddyfile
+        fi
+
+        # Write per-app configuration
+        cat > /etc/caddy/conf.d/$PM2_APP_NAME.caddy << 'APP_EOF'
 $DOMAIN {
     reverse_proxy localhost:$BACKEND_PORT
     encode gzip
 
     log {
-        output file /var/log/caddy/${PM2_APP_NAME}.log
+        output file /var/log/caddy/$PM2_APP_NAME.log
     }
 }
-EOF
+APP_EOF
 
         # Reload Caddy
-        caddy reload --config $CADDY_CONFIG
+        caddy reload --config /etc/caddy/Caddyfile
 ENDSSH
 
     success "Caddy configured for $DOMAIN → localhost:$BACKEND_PORT"
@@ -386,7 +398,6 @@ ENDSSH
 configure_caddy_frontend() {
     info "Configuring Caddy static file server for $DOMAIN..."
 
-    local CADDY_CONFIG="/etc/caddy/Caddyfile"
     local SERVE_PATH="$REMOTE_PATH"
 
     # Use current symlink if zero-downtime is enabled
@@ -394,14 +405,33 @@ configure_caddy_frontend() {
         SERVE_PATH="$REMOTE_PATH/current"
     fi
 
+    # Derive app name from remote path for config file naming
+    local APP_NAME=$(basename "$REMOTE_PATH")
+
     ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash << ENDSSH
         set -e
 
-        # Backup existing Caddyfile
-        [ -f $CADDY_CONFIG ] && cp $CADDY_CONFIG ${CADDY_CONFIG}.backup
+        # Create conf.d directory for per-app configs
+        mkdir -p /etc/caddy/conf.d
 
-        # Create Caddyfile
-        cat > $CADDY_CONFIG << 'EOF'
+        # Ensure main Caddyfile imports conf.d configs
+        if [ ! -f /etc/caddy/Caddyfile ]; then
+            cat > /etc/caddy/Caddyfile << 'MAIN_EOF'
+# ShipNode managed Caddyfile
+# Per-app configurations are in /etc/caddy/conf.d/
+
+import /etc/caddy/conf.d/*.caddy
+MAIN_EOF
+        elif ! grep -q "import /etc/caddy/conf.d/\*.caddy" /etc/caddy/Caddyfile 2>/dev/null; then
+            # Backup existing Caddyfile
+            cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.backup
+            # Add import if missing
+            echo "" >> /etc/caddy/Caddyfile
+            echo "import /etc/caddy/conf.d/*.caddy" >> /etc/caddy/Caddyfile
+        fi
+
+        # Write per-app configuration
+        cat > /etc/caddy/conf.d/$APP_NAME.caddy << 'APP_EOF'
 $DOMAIN {
     root * $SERVE_PATH
     file_server
@@ -410,13 +440,13 @@ $DOMAIN {
     try_files {path} /index.html
 
     log {
-        output file /var/log/caddy/frontend.log
+        output file /var/log/caddy/$APP_NAME.log
     }
 }
-EOF
+APP_EOF
 
         # Reload Caddy
-        caddy reload --config $CADDY_CONFIG
+        caddy reload --config /etc/caddy/Caddyfile
 ENDSSH
 
     success "Caddy configured for $DOMAIN → $SERVE_PATH"
