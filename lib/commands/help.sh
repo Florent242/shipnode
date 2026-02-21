@@ -9,9 +9,14 @@ Commands:
     init --template <name>      Create config from framework template
     init --list-templates       List available framework templates
     init --non-interactive      Create basic shipnode.conf without prompts
+    init --print                Print config to stdout (no file created)
     setup                       First-time server setup (Node, PM2, Caddy, jq)
     deploy              Deploy the application
     deploy --skip-build Deploy without running build step
+    
+Global Options:
+    --config <path>     Use custom config file (default: shipnode.conf)
+    --profile <env>     Use profile config: shipnode.<env>.conf
     doctor              Run pre-flight diagnostic checks
     doctor --security   Run non-destructive security audit
     harden              Interactive server security hardening wizard
@@ -65,11 +70,16 @@ Examples:
     shipnode init --template nextjs    # Use Next.js template
     shipnode init --template react     # Use React template
     shipnode init --list-templates     # List all available templates
+    shipnode init --print              # Print config to stdout
+    shipnode init --print --template express  # Print Express template config
     shipnode setup                     # Setup server (first time)
     shipnode doctor                    # Run diagnostics
     shipnode doctor --security         # Run security audit
     shipnode harden                    # Interactive security hardening
     shipnode deploy                    # Deploy your app
+    shipnode deploy --profile staging  # Deploy using shipnode.staging.conf
+    shipnode deploy --config custom.conf  # Deploy using custom config file
+    shipnode --profile prod deploy     # Alternative flag position
     shipnode env                       # Upload .env file to server
     shipnode unlock                    # Clear stuck deployment lock
     shipnode rollback                  # Rollback to previous release

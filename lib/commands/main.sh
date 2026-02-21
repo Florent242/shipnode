@@ -1,16 +1,56 @@
 main() {
-    case "${1:-}" in
+    # Parse global --config and --profile flags
+    # These can appear before or after the command
+    local args=()
+    local i=1
+    local total=$#
+    local cmd=""
+    local cmd_args=()
+
+    while [ $i -le $total ]; do
+        local arg="${!i}"
+        case "$arg" in
+            --config)
+                i=$((i + 1))
+                if [ $i -le $total ]; then
+                    SHIPNODE_CONFIG_FILE="${!i}"
+                else
+                    error "--config requires a path argument"
+                fi
+                ;;
+            --profile)
+                i=$((i + 1))
+                if [ $i -le $total ]; then
+                    SHIPNODE_CONFIG_FILE="shipnode.${!i}.conf"
+                else
+                    error "--profile requires an environment name (e.g., staging, prod)"
+                fi
+                ;;
+            *)
+                # First non-flag arg is the command
+                if [ -z "$cmd" ]; then
+                    cmd="$arg"
+                else
+                    cmd_args+=("$arg")
+                fi
+                ;;
+        esac
+        i=$((i + 1))
+    done
+
+    # Route to appropriate command
+    case "${cmd:-}" in
         init)
-            cmd_init "$2" "$3"
+            cmd_init "${cmd_args[@]}"
             ;;
         setup)
             cmd_setup
             ;;
         deploy)
-            cmd_deploy "$2"
+            cmd_deploy "${cmd_args[@]}"
             ;;
         doctor)
-            cmd_doctor "$2"
+            cmd_doctor "${cmd_args[@]}"
             ;;
         env)
             cmd_env
@@ -31,7 +71,7 @@ main() {
             cmd_unlock
             ;;
         rollback)
-            cmd_rollback "$2"
+            cmd_rollback "${cmd_args[@]}"
             ;;
         releases)
             cmd_releases
@@ -40,7 +80,7 @@ main() {
             cmd_migrate
             ;;
         user)
-            case "${2:-}" in
+            case "${cmd_args[0]:-}" in
                 sync)
                     cmd_user_sync
                     ;;
@@ -48,10 +88,10 @@ main() {
                     cmd_user_list
                     ;;
                 remove)
-                    cmd_user_remove "$3"
+                    cmd_user_remove "${cmd_args[1]}"
                     ;;
                 *)
-                    error "Unknown user command: ${2:-}\nAvailable: sync, list, remove"
+                    error "Unknown user command: ${cmd_args[0]:-}\nAvailable: sync, list, remove"
                     ;;
             esac
             ;;
@@ -62,7 +102,7 @@ main() {
             cmd_upgrade
             ;;
         ci)
-            cmd_ci "$2"
+            cmd_ci "${cmd_args[@]}"
             ;;
         harden)
             cmd_harden
@@ -74,7 +114,7 @@ main() {
             cmd_help
             ;;
         *)
-            error "Unknown command: $1\nRun 'shipnode help' for usage."
+            error "Unknown command: $cmd\nRun 'shipnode help' for usage."
             ;;
     esac
 }

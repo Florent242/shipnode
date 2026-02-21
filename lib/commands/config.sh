@@ -1,7 +1,48 @@
+# Default config file path
+SHIPNODE_CONFIG_FILE="${SHIPNODE_CONFIG_FILE:-shipnode.conf}"
+
+# Set config file based on --config or --profile flags
+# Usage: set_config_file "$@"
+# Returns: remaining arguments (with flags removed)
+set_config_file() {
+    local args=()
+    local i=1
+    local total=$#
+
+    while [ $i -le $total ]; do
+        local arg="${!i}"
+        case "$arg" in
+            --config)
+                i=$((i + 1))
+                if [ $i -le $total ]; then
+                    SHIPNODE_CONFIG_FILE="${!i}"
+                else
+                    error "--config requires a path argument"
+                fi
+                ;;
+            --profile)
+                i=$((i + 1))
+                if [ $i -le $total ]; then
+                    SHIPNODE_CONFIG_FILE="shipnode.${!i}.conf"
+                else
+                    error "--profile requires an environment name (e.g., staging, prod)"
+                fi
+                ;;
+            *)
+                args+=("$arg")
+                ;;
+        esac
+        i=$((i + 1))
+    done
+
+    # Return remaining args as a string
+    printf '%s\n' "${args[*]}"
+}
+
 # Load configuration
 load_config() {
-    if [ ! -f "shipnode.conf" ]; then
-        error "shipnode.conf not found. Run 'shipnode init' first."
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
+        error "$SHIPNODE_CONFIG_FILE not found. Run 'shipnode init' first."
     fi
 
     info "Loading configuration..."
@@ -16,23 +57,23 @@ load_config() {
 
     # Source the config file with error handling
     set -a
-    if ! source shipnode.conf 2>&1; then
-        error "Failed to parse shipnode.conf"
+    if ! source "$SHIPNODE_CONFIG_FILE" 2>&1; then
+        error "Failed to parse $SHIPNODE_CONFIG_FILE"
     fi
     set +a
 
     # Validate required variables
     if [ -z "$APP_TYPE" ]; then
-        error "APP_TYPE not set in shipnode.conf"
+        error "APP_TYPE not set in $SHIPNODE_CONFIG_FILE"
     fi
     if [ -z "$SSH_USER" ]; then
-        error "SSH_USER not set in shipnode.conf"
+        error "SSH_USER not set in $SHIPNODE_CONFIG_FILE"
     fi
     if [ -z "$SSH_HOST" ]; then
-        error "SSH_HOST not set in shipnode.conf"
+        error "SSH_HOST not set in $SHIPNODE_CONFIG_FILE"
     fi
     if [ -z "$REMOTE_PATH" ]; then
-        error "REMOTE_PATH not set in shipnode.conf"
+        error "REMOTE_PATH not set in $SHIPNODE_CONFIG_FILE"
     fi
 
     # Set defaults

@@ -29,7 +29,7 @@ cmd_doctor() {
     echo ""
 
     # Config validation (if config exists)
-    if [ -f "shipnode.conf" ]; then
+    if [ -f "$SHIPNODE_CONFIG_FILE" ]; then
         info "Configuration validation:"
         check_health_check_path || has_warnings=true
         echo ""
@@ -106,21 +106,21 @@ cmd_doctor_security() {
     fi
 }
 
-# Check if shipnode.conf exists and required vars are set
+# Check if config file exists and required vars are set
 check_local_config() {
-    if [ ! -f "shipnode.conf" ]; then
-        echo "  ✗ shipnode.conf not found"
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
+        echo "  ✗ $SHIPNODE_CONFIG_FILE not found"
         return 1
     fi
 
     # Try to load config
     set +e
-    source shipnode.conf 2>/dev/null
+    source "$SHIPNODE_CONFIG_FILE" 2>/dev/null
     local source_result=$?
     set -e
 
     if [ $source_result -ne 0 ]; then
-        echo "  ✗ shipnode.conf has syntax errors"
+        echo "  ✗ $SHIPNODE_CONFIG_FILE has syntax errors"
         return 1
     fi
 
@@ -132,11 +132,11 @@ check_local_config() {
     [ -z "$REMOTE_PATH" ] && missing_vars+=("REMOTE_PATH")
 
     if [ ${#missing_vars[@]} -gt 0 ]; then
-        echo "  ✗ shipnode.conf missing required variables: ${missing_vars[*]}"
+        echo "  ✗ $SHIPNODE_CONFIG_FILE missing required variables: ${missing_vars[*]}"
         return 1
     fi
 
-    echo "  ✓ shipnode.conf exists and is valid"
+    echo "  ✓ $SHIPNODE_CONFIG_FILE exists and is valid"
     return 0
 }
 
@@ -176,12 +176,12 @@ check_local_package_json() {
 
 # Check if HEALTH_CHECK_PATH starts with / (if set)
 check_health_check_path() {
-    if [ ! -f "shipnode.conf" ]; then
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
         return 0
     fi
 
     set +e
-    source shipnode.conf 2>/dev/null
+    source "$SHIPNODE_CONFIG_FILE" 2>/dev/null
     set -e
 
     if [ -n "$HEALTH_CHECK_PATH" ] && [[ ! "$HEALTH_CHECK_PATH" =~ ^/ ]]; then
@@ -195,13 +195,13 @@ check_health_check_path() {
 
 # Test SSH connection
 check_ssh_connection() {
-    if [ ! -f "shipnode.conf" ]; then
-        echo "  ✗ Cannot test SSH - shipnode.conf not found"
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
+        echo "  ✗ Cannot test SSH - $SHIPNODE_CONFIG_FILE not found"
         return 1
     fi
 
     set +e
-    source shipnode.conf 2>/dev/null
+    source "$SHIPNODE_CONFIG_FILE" 2>/dev/null
     set -e
 
     if [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ]; then
@@ -223,12 +223,12 @@ check_ssh_connection() {
 
 # Check remote environment (batched checks)
 check_remote_environment() {
-    if [ ! -f "shipnode.conf" ]; then
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
         return 1
     fi
 
     set +e
-    source shipnode.conf 2>/dev/null
+    source "$SHIPNODE_CONFIG_FILE" 2>/dev/null
     set -e
 
     local ssh_port="${SSH_PORT:-22}"
@@ -352,12 +352,12 @@ REMOTE_CHECKS
 
 # Quiet SSH connection check (no output)
 check_ssh_connection_quiet() {
-    if [ ! -f "shipnode.conf" ]; then
+    if [ ! -f "$SHIPNODE_CONFIG_FILE" ]; then
         return 1
     fi
 
     set +e
-    source shipnode.conf 2>/dev/null
+    source "$SHIPNODE_CONFIG_FILE" 2>/dev/null
     set -e
 
     if [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ]; then
@@ -371,21 +371,21 @@ check_ssh_connection_quiet() {
 check_local_file_permissions() {
     local has_issues=false
 
-    # Check shipnode.conf permissions
-    if [ -f "shipnode.conf" ]; then
+    # Check config file permissions
+    if [ -f "$SHIPNODE_CONFIG_FILE" ]; then
         local conf_perms
-        conf_perms=$(stat -c "%a" shipnode.conf 2>/dev/null || stat -f "%Lp" shipnode.conf 2>/dev/null)
+        conf_perms=$(stat -c "%a" "$SHIPNODE_CONFIG_FILE" 2>/dev/null || stat -f "%Lp" "$SHIPNODE_CONFIG_FILE" 2>/dev/null)
         if [ -n "$conf_perms" ]; then
             # Check if permissions are too permissive (readable by group/others)
             local other_read=$((conf_perms % 10 / 1))
             local group_read=$(((conf_perms / 10) % 10 / 1))
             
             if [ "$other_read" -ge 4 ] || [ "$group_read" -ge 4 ]; then
-                echo "  ⚠ shipnode.conf has overly permissive permissions ($conf_perms)"
-                echo "      Recommendation: Run 'chmod 600 shipnode.conf'"
+                echo "  ⚠ $SHIPNODE_CONFIG_FILE has overly permissive permissions ($conf_perms)"
+                echo "      Recommendation: Run 'chmod 600 $SHIPNODE_CONFIG_FILE'"
                 has_issues=true
             else
-                echo "  ✓ shipnode.conf permissions are secure ($conf_perms)"
+                echo "  ✓ $SHIPNODE_CONFIG_FILE permissions are secure ($conf_perms)"
             fi
         fi
     fi
