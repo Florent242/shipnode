@@ -10,13 +10,14 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}╔════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     ShipNode Installer v1.0.0      ║${NC}"
+echo -e "${BLUE}║     ShipNode Installer v1.1.2      ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════╝${NC}"
 echo
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SHIPNODE_BIN="$SCRIPT_DIR/shipnode"
+INSTALL_DIR="$HOME/.shipnode"
 
 # Check if shipnode exists
 if [ ! -f "$SHIPNODE_BIN" ]; then
@@ -24,107 +25,65 @@ if [ ! -f "$SHIPNODE_BIN" ]; then
     exit 1
 fi
 
-# Make executable
-chmod +x "$SHIPNODE_BIN"
-echo -e "${GREEN}✓${NC} Made shipnode executable"
+# Install to ~/.shipnode
+echo -e "${BLUE}→${NC} Installing to $INSTALL_DIR..."
 
-# Offer installation methods
-echo
-echo "Choose installation method:"
-echo "  1) Symlink to /usr/local/bin (recommended, requires sudo)"
-echo "  2) Add to PATH in ~/.bashrc"
-echo "  3) Add to PATH in ~/.zshrc"
-echo "  4) Both bashrc and zshrc"
-echo "  5) Skip (manual setup)"
-echo
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}⚠${NC} Removing existing installation..."
+    rm -rf "$INSTALL_DIR"
+fi
 
-read -p "Enter choice [1-5]: " -n 1 -r
-echo
+mkdir -p "$INSTALL_DIR"
 
-case $REPLY in
-    1)
-        echo -e "${BLUE}→${NC} Creating symlink to /usr/local/bin..."
-        sudo ln -sf "$SHIPNODE_BIN" /usr/local/bin/shipnode
-        echo -e "${GREEN}✓${NC} Symlink created"
+cp "$SCRIPT_DIR/shipnode" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/shipnode.conf.example" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/LICENSE" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/README.md" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/INSTALL.md" "$INSTALL_DIR/"
+cp -r "$SCRIPT_DIR/lib" "$INSTALL_DIR/"
+cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/"
 
-        # Verify
-        if command -v shipnode &> /dev/null; then
-            echo -e "${GREEN}✓${NC} Installation successful!"
-            echo -e "\nShipNode is now available globally."
-        else
-            echo -e "${YELLOW}⚠${NC} Symlink created but shipnode not in PATH. Check your PATH settings."
-        fi
-        ;;
-    2)
-        echo -e "${BLUE}→${NC} Adding to ~/.bashrc..."
-        EXPORT_LINE="export PATH=\"$SCRIPT_DIR:\$PATH\""
+chmod +x "$INSTALL_DIR/shipnode"
+echo -e "${GREEN}✓${NC} Files installed"
 
-        if grep -q "$SCRIPT_DIR" ~/.bashrc 2>/dev/null; then
-            echo -e "${YELLOW}⚠${NC} Already in ~/.bashrc"
-        else
-            echo "" >> ~/.bashrc
-            echo "# ShipNode" >> ~/.bashrc
-            echo "$EXPORT_LINE" >> ~/.bashrc
-            echo -e "${GREEN}✓${NC} Added to ~/.bashrc"
-        fi
+# Setup PATH (bashrc always, zshrc if present)
+EXPORT_LINE="export PATH=\"$INSTALL_DIR:\$PATH\""
+ADDED_TO=""
 
-        echo -e "\n${BLUE}Run:${NC} source ~/.bashrc"
-        echo -e "or restart your terminal to use shipnode"
-        ;;
-    3)
-        echo -e "${BLUE}→${NC} Adding to ~/.zshrc..."
-        EXPORT_LINE="export PATH=\"$SCRIPT_DIR:\$PATH\""
+if [ ! -f ~/.bashrc ]; then
+    touch ~/.bashrc
+fi
 
-        if grep -q "$SCRIPT_DIR" ~/.zshrc 2>/dev/null; then
-            echo -e "${YELLOW}⚠${NC} Already in ~/.zshrc"
-        else
-            echo "" >> ~/.zshrc
-            echo "# ShipNode" >> ~/.zshrc
-            echo "$EXPORT_LINE" >> ~/.zshrc
-            echo -e "${GREEN}✓${NC} Added to ~/.zshrc"
-        fi
+if ! grep -q "$INSTALL_DIR" ~/.bashrc 2>/dev/null; then
+    echo "" >> ~/.bashrc
+    echo "# ShipNode" >> ~/.bashrc
+    echo "$EXPORT_LINE" >> ~/.bashrc
+    ADDED_TO="~/.bashrc"
+fi
 
-        echo -e "\n${BLUE}Run:${NC} source ~/.zshrc"
-        echo -e "or restart your terminal to use shipnode"
-        ;;
-    4)
-        echo -e "${BLUE}→${NC} Adding to both ~/.bashrc and ~/.zshrc..."
-        EXPORT_LINE="export PATH=\"$SCRIPT_DIR:\$PATH\""
+if [ -f ~/.zshrc ]; then
+    if ! grep -q "$INSTALL_DIR" ~/.zshrc 2>/dev/null; then
+        echo "" >> ~/.zshrc
+        echo "# ShipNode" >> ~/.zshrc
+        echo "$EXPORT_LINE" >> ~/.zshrc
+        [ -n "$ADDED_TO" ] && ADDED_TO="$ADDED_TO and ~/.zshrc" || ADDED_TO="~/.zshrc"
+    fi
+fi
 
-        # Bashrc
-        if grep -q "$SCRIPT_DIR" ~/.bashrc 2>/dev/null; then
-            echo -e "${YELLOW}⚠${NC} Already in ~/.bashrc"
-        else
-            echo "" >> ~/.bashrc
-            echo "# ShipNode" >> ~/.bashrc
-            echo "$EXPORT_LINE" >> ~/.bashrc
-            echo -e "${GREEN}✓${NC} Added to ~/.bashrc"
-        fi
+if [ -n "$ADDED_TO" ]; then
+    echo -e "${GREEN}✓${NC} Added to PATH in $ADDED_TO"
+else
+    echo -e "${YELLOW}⚠${NC} Already in PATH"
+fi
 
-        # Zshrc
-        if grep -q "$SCRIPT_DIR" ~/.zshrc 2>/dev/null; then
-            echo -e "${YELLOW}⚠${NC} Already in ~/.zshrc"
-        else
-            echo "" >> ~/.zshrc
-            echo "# ShipNode" >> ~/.zshrc
-            echo "$EXPORT_LINE" >> ~/.zshrc
-            echo -e "${GREEN}✓${NC} Added to ~/.zshrc"
-        fi
-
-        echo -e "\n${BLUE}Run:${NC} source ~/.bashrc (or ~/.zshrc)"
-        echo -e "or restart your terminal to use shipnode"
-        ;;
-    5)
-        echo -e "${YELLOW}⚠${NC} Skipping PATH setup"
-        echo -e "\nManual setup options:"
-        echo -e "  1. Symlink: ${BLUE}sudo ln -s $SHIPNODE_BIN /usr/local/bin/shipnode${NC}"
-        echo -e "  2. PATH: Add ${BLUE}export PATH=\"$SCRIPT_DIR:\$PATH\"${NC} to your shell config"
-        ;;
-    *)
-        echo -e "${RED}Invalid choice${NC}"
-        exit 1
-        ;;
-esac
+# Verify in current shell
+export PATH="$INSTALL_DIR:$PATH"
+if command -v shipnode &> /dev/null; then
+    echo -e "${GREEN}✓${NC} shipnode is available"
+else
+    echo -e "${YELLOW}⚠${NC} shipnode not found in PATH yet"
+fi
 
 echo
 echo -e "${GREEN}╔════════════════════════════════════╗${NC}"
@@ -136,5 +95,5 @@ echo -e "  ${BLUE}shipnode help${NC}       # View all commands"
 echo -e "  ${BLUE}shipnode init${NC}       # Initialize a project"
 echo -e "  ${BLUE}shipnode deploy${NC}     # Deploy your app"
 echo
-echo "Documentation: $SCRIPT_DIR/README.md"
+echo "Documentation: $INSTALL_DIR/README.md"
 echo

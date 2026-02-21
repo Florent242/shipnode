@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ENV_FILE support**: `load_config()` sources local `.env` before loading `shipnode.conf` — config values can reference env vars (e.g. `DB_PASSWORD=${DB_PASSWORD}`)
 
 ### Changed
+- **Installer workflow simplified**: Default install now uses `~/.shipnode` with PATH updates in `~/.bashrc` (and `~/.zshrc` if present), removing install location prompts
 - **Multi-app Caddy support**: Switched from monolithic `/etc/caddy/Caddyfile` to per-app configs in `/etc/caddy/conf.d/<app>.caddy` — supports multiple apps on one server
 - **Development dependencies included**: Dependencies now installed without `--production`/`--prod`/`--omit=dev` flags so build tools (TypeScript, Prisma CLI, etc.) are available during deployment
 - **Interactive init by default**: `shipnode init` now launches interactive wizard by default; use `--non-interactive` flag for legacy behavior

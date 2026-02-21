@@ -10,11 +10,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}╔════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║    ShipNode Uninstaller v1.0.0     ║${NC}"
+echo -e "${BLUE}║    ShipNode Uninstaller v1.1.2     ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════╝${NC}"
 echo
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+INSTALL_DIR="$HOME/.shipnode"
 
 # Remove symlink
 if [ -L "/usr/local/bin/shipnode" ]; then
@@ -42,11 +43,11 @@ remove_from_config() {
     local config_name=$2
 
     if [ -f "$config_file" ]; then
-        if grep -q "$SCRIPT_DIR" "$config_file"; then
+        if grep -q "$INSTALL_DIR" "$config_file"; then
             echo -e "${BLUE}→${NC} Removing from $config_name..."
             # Remove the ShipNode comment and export line
             portable_sed_inplace '/# ShipNode/d' "$config_file"
-            portable_sed_inplace "\|$SCRIPT_DIR|d" "$config_file"
+            portable_sed_inplace "\|$INSTALL_DIR|d" "$config_file"
             echo -e "${GREEN}✓${NC} Removed from $config_name"
         fi
     fi
@@ -58,17 +59,11 @@ remove_from_config ~/.zshrc "~/.zshrc"
 echo
 echo -e "${GREEN}✓${NC} ShipNode uninstalled"
 echo
-echo "The ShipNode directory still exists at:"
-echo "  $SCRIPT_DIR"
-echo
-read -p "Remove the entire directory? (y/N) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    cd ~
-    rm -rf "$SCRIPT_DIR"
-    echo -e "${GREEN}✓${NC} Directory removed"
+if [ -d "$INSTALL_DIR" ]; then
+    rm -rf "$INSTALL_DIR"
+    echo -e "${GREEN}✓${NC} Removed $INSTALL_DIR"
 else
-    echo -e "${YELLOW}⚠${NC} Directory kept"
+    echo -e "${YELLOW}⚠${NC} $INSTALL_DIR not found"
 fi
 
 echo

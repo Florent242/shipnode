@@ -25,9 +25,9 @@ chmod +x shipnode-installer.sh
 ./shipnode-installer.sh
 ```
 
-The interactive installer will:
-- Extract the bundled ShipNode to your chosen location
-- Set up PATH or create a symlink
+The installer will:
+- Extract the bundled ShipNode to `~/.shipnode`
+- Add ShipNode to your PATH via `~/.bashrc` (and `~/.zshrc` if present)
 - Verify the installation
 
 ---
@@ -94,55 +94,9 @@ validate_port "3000" && echo "Valid"
 
 ---
 
-## Installation Options
+## Installation Defaults
 
-## Installation Options
-
-The installer offers several installation locations and PATH setup methods:
-
-### Installation Locations
-
-1. **~/.shipnode** (Default) - No sudo required, recommended for single users
-2. **/opt/shipnode** (System-wide) - Requires sudo, for multi-user systems
-3. **Custom path** - Specify your own location
-
-### PATH Setup Methods
-
-#### Option 1: Symlink to /usr/local/bin (Recommended)
-
-Creates a system-wide symlink. Requires sudo. `shipnode` will be available globally from any directory.
-
-**Pros:**
-- Works in all shells (bash, zsh, fish, etc.)
-- No shell config modifications needed
-- Clean and standard approach
-
-**Cons:**
-- Requires sudo access
-
-#### Option 2: Add to ~/.bashrc
-
-Adds ShipNode to your PATH in bash configuration. After installation, run `source ~/.bashrc` or restart your terminal.
-
-**Pros:**
-- No sudo required
-- Easy to modify or remove
-
-**Cons:**
-- Only works in bash
-- Requires sourcing config after install
-
-#### Option 3: Add to ~/.zshrc
-
-Same as option 2, but for zsh users. After installation, run `source ~/.zshrc` or restart your terminal.
-
-#### Option 4: Add to both bash and zsh
-
-If you use both shells or are unsure which one you use.
-
-#### Option 5: Manual Setup
-
-Skip automatic installation and set up manually. The installer will show you the commands to run manually.
+ShipNode installs to `~/.shipnode` and updates your PATH in `~/.bashrc` (and `~/.zshrc` if present). No sudo is required.
 
 ## Verification
 
@@ -158,22 +112,15 @@ You should see the ShipNode help menu.
 
 ### "command not found: shipnode"
 
-**After symlink installation:**
-- Check if /usr/local/bin is in your PATH:
-  ```bash
-  echo $PATH | grep /usr/local/bin
-  ```
-- If not, add it to your shell config:
-  ```bash
-  export PATH="/usr/local/bin:$PATH"
-  ```
-
-**After PATH installation:**
 - Make sure you sourced your shell config:
   ```bash
   source ~/.bashrc  # or ~/.zshrc
   ```
 - Or restart your terminal
+- Check that `~/.shipnode` is on your PATH:
+  ```bash
+  echo $PATH | grep "$HOME/.shipnode"
+  ```
 
 ### "Permission denied"
 
@@ -204,15 +151,10 @@ To remove ShipNode:
 
 1. **Remove installation directory:**
    ```bash
-   rm -rf ~/.shipnode  # or /opt/shipnode, or your custom path
+   rm -rf ~/.shipnode
    ```
 
-2. **Remove symlink (if created):**
-   ```bash
-   sudo rm /usr/local/bin/shipnode
-   ```
-
-3. **Remove from shell config (if added to PATH):**
+2. **Remove from shell config:**
    Edit `~/.bashrc` or `~/.zshrc` and remove the ShipNode export lines.
 
 Or if installed from source:
@@ -227,7 +169,7 @@ cd /path/to/shipnode
 
 1. **Read the documentation**
    ```bash
-   cat ~/.shipnode/README.md  # or /opt/shipnode/README.md
+   cat ~/.shipnode/README.md
    ```
 
 2. **Initialize a project**

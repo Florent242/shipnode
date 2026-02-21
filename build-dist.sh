@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 DIST_DIR="dist"
 ARCHIVE_NAME="shipnode-payload.tar.gz"
 INSTALLER_NAME="shipnode-installer.sh"
@@ -90,7 +90,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 INSTALL_DIR="$HOME/.shipnode"
 
 # Parse flags
@@ -149,49 +149,9 @@ fi
 
 echo -e "${GREEN}✓${NC} Extracted successfully"
 
-# Choose installation location
-# If not interactive (e.g., piped from curl or --non-interactive flag), default to recommended location
-if [ "$NON_INTERACTIVE" = true ] || [ ! -t 0 ]; then
-    INSTALL_DIR="$HOME/.shipnode"
-    USE_SUDO=""
-    echo -e "${BLUE}→${NC} Non-interactive mode: installing to $INSTALL_DIR"
-else
-    echo
-    echo "Choose installation location:"
-    echo "  1) $HOME/.shipnode (recommended)"
-    echo "  2) /opt/shipnode (system-wide, requires sudo)"
-    echo "  3) Custom path"
-    echo
-
-    read -p "Enter choice [1-3]: " -n 1 -r
-    echo
-
-    case $REPLY in
-        1)
-            INSTALL_DIR="$HOME/.shipnode"
-            USE_SUDO=""
-            ;;
-        2)
-            INSTALL_DIR="/opt/shipnode"
-            USE_SUDO="sudo"
-            ;;
-        3)
-            read -p "Enter installation path: " INSTALL_DIR
-            INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
-
-            # Check if we need sudo
-            if [[ "$INSTALL_DIR" == /opt/* ]] || [[ "$INSTALL_DIR" == /usr/* ]]; then
-                USE_SUDO="sudo"
-            else
-                USE_SUDO=""
-            fi
-            ;;
-        *)
-            echo -e "${RED}Invalid choice${NC}"
-            exit 1
-            ;;
-    esac
-fi
+# Choose installation location (Linux-safe default)
+INSTALL_DIR="$HOME/.shipnode"
+echo -e "${BLUE}→${NC} Installing to $INSTALL_DIR"
 
 # Install
 echo -e "${BLUE}→${NC} Installing to $INSTALL_DIR..."
@@ -199,17 +159,17 @@ echo -e "${BLUE}→${NC} Installing to $INSTALL_DIR..."
 # Remove old installation if exists
 if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}⚠${NC} Removing existing installation..."
-    $USE_SUDO rm -rf "$INSTALL_DIR"
+    rm -rf "$INSTALL_DIR"
 fi
 
 # Create installation directory
-$USE_SUDO mkdir -p "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
 
 # Copy files
-$USE_SUDO cp -r shipnode/* "$INSTALL_DIR/"
+cp -r shipnode/* "$INSTALL_DIR/"
 
 # Make shipnode executable
-$USE_SUDO chmod +x "$INSTALL_DIR/shipnode"
+chmod +x "$INSTALL_DIR/shipnode"
 
 echo -e "${GREEN}✓${NC} Files installed"
 

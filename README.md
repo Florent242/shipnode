@@ -37,8 +37,8 @@ chmod +x shipnode-installer.sh
 ```
 
 The installer will:
-- Extract ShipNode to your chosen location (~/.shipnode, /opt/shipnode, or custom)
-- Create a symlink to `/usr/local/bin` or add to your PATH
+- Extract ShipNode to `~/.shipnode`
+- Add ShipNode to your PATH via `~/.bashrc` (and `~/.zshrc` if present)
 - Verify the installation
 
 ### For Developers
@@ -66,9 +66,9 @@ The modular version sources all modules from `lib/` dynamically, making it easy 
 
 **If installed via installer:**
 ```bash
-rm -rf ~/.shipnode  # or /opt/shipnode
-sudo rm /usr/local/bin/shipnode
+rm -rf ~/.shipnode
 ```
+Remove the ShipNode PATH entry from `~/.bashrc` or `~/.zshrc`.
 
 **If cloned from source:**
 ```bash

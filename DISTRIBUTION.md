@@ -44,19 +44,9 @@ Runs shipnode-installer.sh
          ↓
 Extracts to temp directory
          ↓
-User chooses install location
-  • ~/.shipnode (default)
-  • /opt/shipnode (system-wide)
-  • Custom path
+Installs to ~/.shipnode
          ↓
-Copies files to location
-         ↓
-User chooses PATH setup
-  • Symlink to /usr/local/bin
-  • Add to ~/.bashrc
-  • Add to ~/.zshrc
-  • Both shell configs
-  • Manual setup
+Adds PATH entry to ~/.bashrc (and ~/.zshrc if present)
          ↓
 Verification & cleanup
          ↓
@@ -150,39 +140,14 @@ shipnode/
     └── shipnode-installer.sh     # Self-extracting installer
 ```
 
-## Installation Locations
+## Installation Defaults
 
-The installer supports three installation types:
+The installer always uses a Linux-safe default:
 
-### 1. User Installation (~/.shipnode)
-- **Path**: `$HOME/.shipnode`
+- **Install path**: `$HOME/.shipnode`
 - **Permissions**: No sudo required
-- **Use case**: Single user, development
-- **Uninstall**: `rm -rf ~/.shipnode`
-
-### 2. System Installation (/opt/shipnode)
-- **Path**: `/opt/shipnode`
-- **Permissions**: Requires sudo
-- **Use case**: Multi-user systems, production
-- **Uninstall**: `sudo rm -rf /opt/shipnode`
-
-### 3. Custom Installation
-- **Path**: User-specified
-- **Permissions**: Depends on location
-- **Use case**: Special requirements
-- **Uninstall**: Remove the directory
-
-## PATH Setup Options
-
-### 1. Symlink (/usr/local/bin)
-- **Pros**: Works in all shells, clean, standard
-- **Cons**: Requires sudo
-- **Command**: `sudo ln -s <install-dir>/shipnode /usr/local/bin/shipnode`
-
-### 2. Shell Config (bashrc/zshrc)
-- **Pros**: No sudo, easy to modify
-- **Cons**: Shell-specific, needs sourcing
-- **Command**: `export PATH="<install-dir>:$PATH"`
+- **PATH update**: Adds `export PATH="$HOME/.shipnode:$PATH"` to `~/.bashrc` (and `~/.zshrc` if present)
+- **Uninstall**: `rm -rf ~/.shipnode` and remove the PATH entry
 
 ## Testing the Installer
 
@@ -199,7 +164,7 @@ bash shipnode-installer.sh
 
 # Or test locally
 bash dist/shipnode-installer.sh
-# Choose option 1 and a test directory
+# Verify it installs to ~/.shipnode
 ```
 
 ## Updating the Installer
