@@ -36,6 +36,7 @@ source "$LIB_DIR/commands/rollback.sh"
 source "$LIB_DIR/commands/migrate.sh"
 source "$LIB_DIR/commands/env.sh"
 source "$LIB_DIR/commands/upgrade.sh"
+source "$LIB_DIR/commands/ci.sh"
 source "$LIB_DIR/commands/help.sh"
 
 # Source and run main entry point

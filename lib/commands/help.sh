@@ -23,6 +23,8 @@ Commands:
     releases            List all available releases
     migrate             Migrate existing deployment to release structure
     upgrade             Upgrade ShipNode to latest version
+    ci github           Generate GitHub Actions workflow
+    ci env-sync         Sync shipnode.conf to GitHub secrets
     help                Show this help message
 
 User Management:
@@ -70,6 +72,8 @@ Examples:
     shipnode releases                  # List all releases
     shipnode migrate                   # Migrate to release structure
     shipnode mkpasswd                  # Generate password hash
+    shipnode ci github                 # Generate GitHub Actions workflow
+    shipnode ci env-sync               # Sync shipnode.conf to GitHub secrets
     shipnode user sync                 # Provision users from users.yml
     shipnode user list                 # List provisioned users
     shipnode user remove alice         # Revoke access for alice

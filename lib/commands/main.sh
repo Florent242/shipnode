@@ -61,6 +61,9 @@ main() {
         upgrade)
             cmd_upgrade
             ;;
+        ci)
+            cmd_ci "$2"
+            ;;
         help|--help|-h)
             cmd_help
             ;;
