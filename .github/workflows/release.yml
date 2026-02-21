@@ -5,6 +5,14 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.1.2)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -24,5 +32,6 @@ jobs:
       with:
         files: dist/shipnode-installer.sh
         generate_release_notes: true
+        tag_name: ${{ github.event.inputs.tag || github.ref_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
