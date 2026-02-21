@@ -22,7 +22,7 @@
   - Install and configure fail2ban (optional).
 - Ensure all changes are opt-in with clear prompts and rollback hints.
 
-### 3) Doctor Security Audit
+### 3) Doctor Security Audit ✅ COMPLETED
 - Add `shipnode doctor --security` for non-destructive checks:
   - SSH config posture (root login, password auth, port).
   - Firewall status and allowed ports.

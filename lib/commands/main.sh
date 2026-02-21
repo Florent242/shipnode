@@ -10,7 +10,7 @@ main() {
             cmd_deploy "$2"
             ;;
         doctor)
-            cmd_doctor
+            cmd_doctor "$2"
             ;;
         env)
             cmd_env

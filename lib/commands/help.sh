@@ -13,6 +13,7 @@ Commands:
     deploy              Deploy the application
     deploy --skip-build Deploy without running build step
     doctor              Run pre-flight diagnostic checks
+    doctor --security   Run non-destructive security audit
     harden              Interactive server security hardening wizard
     env                 Upload .env file to server
     status              Check application status
@@ -66,6 +67,7 @@ Examples:
     shipnode init --list-templates     # List all available templates
     shipnode setup                     # Setup server (first time)
     shipnode doctor                    # Run diagnostics
+    shipnode doctor --security         # Run security audit
     shipnode harden                    # Interactive security hardening
     shipnode deploy                    # Deploy your app
     shipnode env                       # Upload .env file to server
