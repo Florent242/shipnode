@@ -206,6 +206,22 @@ EOF
 }
 
 cmd_ci_env_sync() {
+    local sync_all=false
+    local env_file="${ENV_FILE:-.env}"
+
+    # Parse arguments
+    for arg in "$@"; do
+        case "$arg" in
+            --all)
+                sync_all=true
+                ;;
+            --env-file)
+                env_file="$2"
+                shift
+                ;;
+        esac
+    done
+
     load_config
 
     # Check for GitHub CLI
@@ -229,6 +245,7 @@ cmd_ci_env_sync() {
     echo
 
     local secrets_set=0
+    local secrets_skipped=0
     local secrets_failed=0
 
     # Required secrets from shipnode.conf
@@ -237,12 +254,15 @@ cmd_ci_env_sync() {
     secrets_map["SHIPNODE_SSH_USER"]="$SSH_USER"
     secrets_map["SHIPNODE_SSH_PORT"]="$SSH_PORT"
 
+    info "=== ShipNode Configuration Secrets ==="
+    echo
+
     for secret_name in "${!secrets_map[@]}"; do
         local secret_value="${secrets_map[$secret_name]}"
 
         if [ -z "$secret_value" ]; then
             warn "Skipping $secret_name: value not set in shipnode.conf"
-            ((secrets_failed++))
+            ((secrets_skipped++))
             continue
         fi
 
@@ -256,16 +276,87 @@ cmd_ci_env_sync() {
         fi
     done
 
-    echo
-    info "Results: $secrets_set secrets set, $secrets_failed failed"
-
-    # Special handling for SSH key - we can't read the private key from config
-    if ! gh secret list 2>/dev/null | grep -q "SHIPNODE_SSH_KEY"; then
+    # Sync .env file if it exists
+    if [ -f "$env_file" ]; then
         echo
-        warn "SHIPNODE_SSH_KEY is not set"
-        info "Please set it manually with: gh secret set SHIPNODE_SSH_KEY < ~/.ssh/id_rsa"
+        info "=== Environment File Secrets ($env_file) ==="
+        echo
+
+        if [ "$sync_all" = false ]; then
+            warn "The following secrets will be synced from $env_file:"
+            echo
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                # Skip comments and empty lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "$line" ]] && continue
+
+                # Extract variable name
+                if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    echo "  - $var_name"
+                fi
+            done < "$env_file"
+            echo
+            read -p "Proceed with syncing these secrets? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                info "Skipping .env file sync"
+            else
+                sync_all=true
+            fi
+        fi
+
+        if [ "$sync_all" = true ]; then
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                # Skip comments and empty lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "$line" ]] && continue
+
+                # Extract variable name and value
+                if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    local var_value="${BASH_REMATCH[2]}"
+
+                    # Remove quotes if present
+                    if [[ "$var_value" =~ ^\"(.*)\"$ ]] || [[ "$var_value" =~ ^\'(.*)\'$ ]]; then
+                        var_value="${BASH_REMATCH[1]}"
+                    fi
+
+                    if [ -n "$var_value" ]; then
+                        info "Setting $var_name..."
+                        if gh secret set "$var_name" --body "$var_value" 2>/dev/null; then
+                            success "Set $var_name"
+                            ((secrets_set++))
+                        else
+                            warn "Failed to set $var_name"
+                            ((secrets_failed++))
+                        fi
+                    else
+                        warn "Skipping $var_name: empty value"
+                        ((secrets_skipped++))
+                    fi
+                fi
+            done < "$env_file"
+        fi
+    else
+        echo
+        warn "Environment file not found: $env_file"
+        warn "Set ENV_FILE in shipnode.conf to specify a different file"
     fi
 
     echo
+    info "=== Results ==="
+    echo "  Set: $secrets_set"
+    echo "  Skipped: $secrets_skipped"
+    echo "  Failed: $secrets_failed"
+    echo
+
+    # Special handling for SSH key - we can't read the private key from config
+    if ! gh secret list 2>/dev/null | grep -q "SHIPNODE_SSH_KEY"; then
+        warn "SHIPNODE_SSH_KEY is not set"
+        info "Please set it manually with: gh secret set SHIPNODE_SSH_KEY < ~/.ssh/id_rsa"
+        echo
+    fi
+
     info "GitHub Secrets configured. The workflow can now access these values."
 }
