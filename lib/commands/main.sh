@@ -64,6 +64,9 @@ main() {
         ci)
             cmd_ci "$2"
             ;;
+        harden)
+            cmd_harden
+            ;;
         help|--help|-h)
             cmd_help
             ;;

@@ -15,7 +15,7 @@
 - Document required secrets (SSH key, host, user, port).
 - **Bonus**: Added `shipnode ci env-sync` to sync shipnode.conf and .env to GitHub secrets with auto-installation of gh CLI.
 
-### 2) Security Hardening (Minimal)
+### 2) Security Hardening (Minimal) ✅ COMPLETED
 - Add `shipnode harden` to apply basic server hardening:
   - SSH: non-default port (optional), disable password auth (optional), disable root login (optional).
   - Firewall: allow SSH + 80/443; deny all other inbound.
