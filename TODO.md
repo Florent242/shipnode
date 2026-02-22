@@ -30,7 +30,7 @@
   - File permissions for `shipnode.conf` and `.env` (if local).
 - Output actionable warnings with recommended commands.
 
-### 4) Config UX Improvements
+### 4) Config UX Improvements ✅ COMPLETED
 - Support `--config <path>` for all commands (default `shipnode.conf`).
 - Allow profile configs: `shipnode.<env>.conf` (e.g., staging, prod).
 - Add `shipnode init --print` to emit config without writing a file.
