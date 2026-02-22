@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-VERSION="1.1.2"
+VERSION="1.2.0"
 DIST_DIR="dist"
 ARCHIVE_NAME="shipnode-payload.tar.gz"
 INSTALLER_NAME="shipnode-installer.sh"
@@ -90,7 +90,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-VERSION="1.1.2"
+VERSION="1.2.0"
 INSTALL_DIR="$HOME/.shipnode"
 
 # Parse flags
