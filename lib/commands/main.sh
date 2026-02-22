@@ -47,7 +47,21 @@ main() {
             cmd_setup
             ;;
         deploy)
-            cmd_deploy "${cmd_args[@]}"
+            # Check for --dry-run flag
+            local DRY_RUN=false
+            local DEPLOY_ARGS=()
+            for arg in "${cmd_args[@]}"; do
+                if [ "$arg" = "--dry-run" ]; then
+                    DRY_RUN=true
+                else
+                    DEPLOY_ARGS+=("$arg")
+                fi
+            done
+            if [ "$DRY_RUN" = true ]; then
+                cmd_deploy_dry_run "${DEPLOY_ARGS[@]}"
+            else
+                cmd_deploy "${DEPLOY_ARGS[@]}"
+            fi
             ;;
         doctor)
             cmd_doctor "${cmd_args[@]}"

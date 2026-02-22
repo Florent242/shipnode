@@ -35,12 +35,13 @@
 - Allow profile configs: `shipnode.<env>.conf` (e.g., staging, prod).
 - Add `shipnode init --print` to emit config without writing a file.
 
-### 5) Deploy Dry Run
+### 5) Deploy Dry Run ✅ COMPLETED
 - Add `shipnode deploy --dry-run` to show:
   - Resolved config values (redacting secrets).
   - Local build commands to be executed.
   - Remote commands and rsync targets.
   - Zero-downtime flow steps if enabled.
+  - Supports both backend and frontend apps, zero-downtime and legacy modes.
 
 ## Docs Updates
 - Update `README.md` with new command flags and examples.

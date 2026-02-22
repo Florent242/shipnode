@@ -1,3 +1,245 @@
+redact_secrets() {
+    local value="$1"
+    local var_name="$2"
+    
+    # Check if variable name suggests it contains a secret (case-insensitive)
+    local lower_var_name=$(echo "$var_name" | tr '[:upper:]' '[:lower:]')
+    if [[ "$lower_var_name" =~ (password|secret|key|token|auth|private|credential) ]]; then
+        echo "[REDACTED]"
+    else
+        echo "$value"
+    fi
+}
+
+cmd_deploy_dry_run() {
+    load_config
+
+    local SKIP_BUILD=false
+    if [ "$1" = "--skip-build" ]; then
+        SKIP_BUILD=true
+    fi
+
+    # Detect package manager
+    PKG_MANAGER=$(detect_pkg_manager)
+    PKG_INSTALL_CMD=$(get_pkg_install_cmd "$PKG_MANAGER")
+    PKG_RUN_CMD=$(get_pkg_run_cmd "$PKG_MANAGER" "build")
+    
+    # Detect build directory for frontend
+    local BUILD_DIR="dist"
+    if [ -d "build" ]; then
+        BUILD_DIR="build"
+    elif [ -d "public" ]; then
+        BUILD_DIR="public"
+    fi
+
+    echo ""
+    echo "==========================================="
+    echo "        DEPLOYMENT DRY RUN MODE"
+    echo "==========================================="
+    echo ""
+    
+    # Configuration Section
+    echo "Configuration (from $SHIPNODE_CONFIG_FILE):"
+    echo "  App Type:        $APP_TYPE"
+    echo "  SSH User:        $SSH_USER"
+    echo "  SSH Host:        $SSH_HOST"
+    echo "  SSH Port:        $(redact_secrets "$SSH_PORT" "SSH_PORT")"
+    echo "  Remote Path:     $REMOTE_PATH"
+    echo "  Package Manager: $PKG_MANAGER"
+    echo "  Zero Downtime:   ${ZERO_DOWNTIME:-true}"
+    
+    if [ "$APP_TYPE" = "backend" ]; then
+        echo "  PM2 App Name:    $PM2_APP_NAME"
+        echo "  Backend Port:    $(redact_secrets "$BACKEND_PORT" "BACKEND_PORT")"
+    fi
+    
+    if [ -n "$DOMAIN" ]; then
+        echo "  Domain:          $DOMAIN"
+    fi
+    
+    # Show redacted secrets
+    echo ""
+    echo "Security - Secrets Redacted:"
+    echo "  - Variables containing: PASSWORD, SECRET, KEY, TOKEN, AUTH, PRIVATE, CREDENTIAL"
+    echo "  - SSH connection details shown, but authentication keys are redacted"
+    
+    # Local Build Commands
+    echo ""
+    echo "Local Build Commands:"
+    if [ "$SKIP_BUILD" = true ]; then
+        echo "  [SKIPPED via --skip-build flag]"
+    else
+        if [ "$APP_TYPE" = "frontend" ]; then
+            echo "  1. $PKG_RUN_CMD"
+            echo "     (builds frontend for production)"
+            echo "  2. Detected build output: $BUILD_DIR/"
+        else
+            echo "  [Backend builds happen on remote server]"
+        fi
+    fi
+    
+    # Remote Commands Section
+    echo ""
+    echo "Remote Deployment Commands:"
+    
+    if [ "$ZERO_DOWNTIME" = "true" ]; then
+        local timestamp=$(date +"%Y%m%d%H%M%S")
+        local release_path="$REMOTE_PATH/releases/$timestamp"
+        
+        echo "  Mode: Zero-Downtime Deployment"
+        echo ""
+        echo "  Deployment Flow:"
+        echo "    1. Acquire deployment lock at $REMOTE_PATH/.shipnode/deploy.lock"
+        echo "    2. Create new release directory: $release_path"
+        echo "    3. Setup release structure (releases/, shared/, .shipnode/)"
+        echo ""
+        echo "    4. Rsync local files to release directory:"
+        echo "       Source: ./"
+        echo "       Target: $SSH_USER@$SSH_HOST:$release_path/"
+        echo "       Excludes: node_modules, .env, .git, .gitignore, shipnode.conf, *.log"
+        echo ""
+        echo "    5. Remote setup commands:"
+        echo "       - cd $release_path"
+        if [ -f "$REMOTE_PATH/shared/.env" ] || [ -f ".env" ]; then
+            echo "       - ln -sf $REMOTE_PATH/shared/.env .env"
+        fi
+        
+        if [ "$APP_TYPE" = "backend" ]; then
+            echo "       - $PKG_INSTALL_CMD"
+            if [ -f "package.json" ] && [ "$SKIP_BUILD" = false ]; then
+                if jq -e '.scripts.build' package.json >/dev/null 2>&1; then
+                    echo "       - $PKG_RUN_CMD (detected build script in package.json)"
+                fi
+            fi
+            echo "       - [Link .env into build/ if AdonisJS framework detected]"
+        fi
+        echo ""
+        echo "    6. Run pre-deploy hook (if PRE_DEPLOY_HOOK is configured)"
+        echo ""
+        echo "    7. Atomic symlink switch:"
+        echo "       ln -sfn $release_path $REMOTE_PATH/current.tmp"
+        echo "       mv -Tf $REMOTE_PATH/current.tmp $REMOTE_PATH/current"
+        echo ""
+        
+        if [ "$APP_TYPE" = "backend" ]; then
+            echo "    8. Reload application:"
+            echo "       - Generate PM2 ecosystem config at $REMOTE_PATH/shared/ecosystem.config.cjs"
+            echo "       - pm2 startOrReload ecosystem.config.cjs --update-env"
+            echo "       - pm2 save"
+            echo ""
+            
+            if [ "${HEALTH_CHECK_ENABLED:-true}" = "true" ]; then
+                echo "    9. Health check (if enabled):"
+                echo "       - Endpoint: http://localhost:$BACKEND_PORT${HEALTH_CHECK_PATH:-/health}"
+                echo "       - Retries: ${HEALTH_CHECK_RETRIES:-3}"
+                echo "       - Timeout: ${HEALTH_CHECK_TIMEOUT:-30}s per attempt"
+                echo "       - [On failure: automatic rollback to previous release]"
+                echo ""
+                echo "   10. Record successful release in $REMOTE_PATH/.shipnode/releases.json"
+                echo ""
+                echo "   11. Cleanup old releases (keep ${KEEP_RELEASES:-5} most recent)"
+                echo ""
+                echo "   12. Run post-deploy hook (if POST_DEPLOY_HOOK is configured)"
+                echo ""
+                echo "   13. Release deployment lock"
+            else
+                echo "    9. Record successful release"
+                echo "   10. Cleanup old releases (keep ${KEEP_RELEASES:-5} most recent)"
+                echo "   11. Run post-deploy hook (if configured)"
+                echo "   12. Release deployment lock"
+            fi
+        else
+            echo "    8. Record successful release"
+            echo "    9. Run post-deploy hook (if POST_DEPLOY_HOOK is configured)"
+            echo "   10. Cleanup old releases (keep ${KEEP_RELEASES:-5} most recent)"
+            echo "   11. Release deployment lock"
+        fi
+        
+        echo ""
+        echo "  Directory Structure:"
+        echo "    $REMOTE_PATH/"
+        echo "    ├── current/          -> symlink to active release"
+        echo "    ├── releases/"
+        echo "    │   └── $timestamp/   <- new release"
+        echo "    ├── shared/"
+        echo "    │   ├── .env          # persistent environment"
+        echo "    │   └── ecosystem.config.cjs  # PM2 config"
+        echo "    └── .shipnode/"
+        echo "        ├── deploy.lock   # prevents concurrent deploys"
+        echo "        └── releases.json # release history"
+        
+    else
+        echo "  Mode: Legacy Deployment (Non-Zero-Downtime)"
+        echo ""
+        echo "  Deployment Steps:"
+        echo "    1. Create remote directory: $REMOTE_PATH"
+        echo ""
+        echo "    2. Rsync local files:"
+        echo "       Source: ./"
+        echo "       Target: $SSH_USER@$SSH_HOST:$REMOTE_PATH/"
+        echo "       Excludes: node_modules, .env, .git, .gitignore, shipnode.conf, *.log"
+        echo ""
+        echo "    3. Remote build commands:"
+        if [ "$APP_TYPE" = "backend" ]; then
+            echo "       - cd $REMOTE_PATH"
+            echo "       - $PKG_INSTALL_CMD"
+            if [ -f "package.json" ] && [ "$SKIP_BUILD" = false ]; then
+                if jq -e '.scripts.build' package.json >/dev/null 2>&1; then
+                    echo "       - $PKG_RUN_CMD (detected build script)"
+                fi
+            fi
+            echo "       - [Link .env into build/ if needed]"
+        fi
+        echo ""
+        echo "    4. Run pre-deploy hook (if PRE_DEPLOY_HOOK is configured)"
+        echo ""
+        
+        if [ "$APP_TYPE" = "backend" ]; then
+            echo "    5. Start/Reload with PM2:"
+            echo "       - Generate ecosystem.config.cjs"
+            echo "       - pm2 startOrReload ecosystem.config.cjs --update-env"
+            echo "       - pm2 save"
+        fi
+        
+        echo ""
+        echo "    6. Run post-deploy hook (if POST_DEPLOY_HOOK is configured)"
+    fi
+    
+    # Caddy Configuration (if domain is set)
+    if [ -n "$DOMAIN" ]; then
+        echo ""
+        echo "Caddy Configuration:"
+        if [ "$APP_TYPE" = "backend" ]; then
+            echo "  - Configure reverse proxy: $DOMAIN -> localhost:$BACKEND_PORT"
+            echo "  - Config file: /etc/caddy/conf.d/$PM2_APP_NAME.caddy"
+        else
+            local SERVE_PATH="$REMOTE_PATH"
+            if [ "$ZERO_DOWNTIME" = "true" ]; then
+                SERVE_PATH="$REMOTE_PATH/current"
+            fi
+            local APP_NAME=$(basename "$REMOTE_PATH")
+            echo "  - Configure static file server: $DOMAIN -> $SERVE_PATH"
+            echo "  - Config file: /etc/caddy/conf.d/$APP_NAME.caddy"
+            echo "  - SPA support enabled (try_files {path} /index.html)"
+        fi
+        echo "  - Log file: /var/log/caddy/$(basename "$REMOTE_PATH").log"
+    fi
+    
+    echo ""
+    echo "==========================================="
+    echo "  DRY RUN COMPLETE - No changes made"
+    echo "==========================================="
+    echo ""
+    echo "To execute this deployment, run:"
+    echo "  shipnode deploy"
+    if [ "$SKIP_BUILD" = true ]; then
+        echo ""
+        echo "Or with --skip-build flag:"
+        echo "  shipnode deploy --skip-build"
+    fi
+    echo ""
+}
+
 cmd_deploy() {
     load_config
 

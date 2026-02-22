@@ -13,6 +13,7 @@ Commands:
     setup                       First-time server setup (Node, PM2, Caddy, jq)
     deploy              Deploy the application
     deploy --skip-build Deploy without running build step
+    deploy --dry-run    Preview deployment without executing
     
 Global Options:
     --config <path>     Use custom config file (default: shipnode.conf)
