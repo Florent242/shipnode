@@ -85,6 +85,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PM2 cwd path in zero-downtime deploy**: Fixed working directory pointing to wrong path
 - **Hook scp failures visible**: Show scp copy failure output instead of silently continuing
 
+#### GitHub Actions Generator
+- **`shipnode ci github`**: Scaffold a minimal GitHub Actions deployment workflow
+  - Creates `.github/workflows/deploy.yml` with SSH-based deployment
+  - Workflow installs dependencies, runs build, and executes `shipnode deploy`
+  - Documents required GitHub secrets (SSH_PRIVATE_KEY, SSH_HOST, SSH_USER, SSH_PORT)
+- **`shipnode ci env-sync`**: Sync `shipnode.conf` values to GitHub repository secrets
+  - Automatically installs `gh` CLI if not present
+  - Syncs SSH_HOST, SSH_USER, and SSH_PORT as individual secrets
+  - `--all` flag additionally syncs `.env` file as base64-encoded secret
+
+#### Security Hardening
+- **`shipnode harden`**: Interactive server security hardening command
+  - **SSH hardening**: Optionally change SSH port, disable password authentication, disable root login
+  - **Firewall setup**: Configure UFW to allow only SSH, HTTP, and HTTPS; deny all other inbound traffic
+  - **Fail2Ban**: Optionally install and configure fail2ban for brute-force protection
+  - All changes are opt-in with clear prompts and summary before application
+
+#### Doctor Security Audit
+- **`shipnode doctor --security`**: Non-destructive security posture audit
+  - **SSH configuration audit**: Checks root login status, password authentication, and SSH port
+  - **Firewall audit**: Verifies UFW status and allowed ports
+  - **Fail2Ban audit**: Checks installation and service status
+  - **File permissions**: Audits permissions for `shipnode.conf` and local `.env` files
+  - Outputs actionable warnings with recommended commands for each issue
+
+#### Config UX Improvements
+- **`--config <path>` flag**: Support for custom configuration files across all commands
+  - Default remains `shipnode.conf` in project root
+  - Profile configs follow naming convention `shipnode.<env>.conf` (e.g., `shipnode.staging.conf`)
+  - Enables multi-environment deployments without editing files
+- **`shipnode init --print`**: Emit configuration to stdout without writing a file
+  - Useful for CI/CD pipelines and configuration validation
+  - Shows exactly what would be generated with current settings
+
+#### Deploy Dry Run
+- **`shipnode deploy --dry-run`**: Preview deployment steps without executing them
+  - **Configuration preview**: Shows resolved config values with secrets redacted
+  - **Build preview**: Displays local build commands to be executed (package manager, build command)
+  - **Deployment preview**: Lists remote commands, rsync targets, and excluded patterns
+  - **Zero-downtime flow**: Shows each step of the deployment flow with health check details
+  - Supports both backend and frontend applications
+  - Supports both zero-downtime and legacy deployment modes
+  - Ideal for validating configuration before first deployment and CI/CD pipeline testing
+
 ## [1.1.0] - 2026-01-24
 
 ### Added
