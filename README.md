@@ -11,6 +11,11 @@ Simple, zero-config deployment tool for Node.js backends and static frontends. D
 - **Release management** with configurable retention
 - **Health checks** for backend deployments
 - **Pre-flight diagnostics** with `shipnode doctor` command
+- **Security audit** with `shipnode doctor --security`
+- **Server hardening** with `shipnode harden` command
+- **Deploy preview** with `shipnode deploy --dry-run`
+- **CI/CD workflows** with `shipnode ci github` and `shipnode ci env-sync`
+- **Multi-environment support** with `--config` flag for profile configs
 - **Auto-detection** of package managers (npm, yarn, pnpm, bun)
 - **Zero dependencies** (pure bash script)
 - **PM2** process management for backends
@@ -194,25 +199,39 @@ That's it! Your app is live.
 
 ```bash
 # Deployment
-shipnode init                # Create shipnode.conf
-shipnode setup               # Setup server (first time only)
-shipnode doctor              # Run pre-flight diagnostics
-shipnode deploy              # Deploy app
-shipnode deploy --skip-build # Deploy without building
-shipnode status              # Check app status
-shipnode logs                # View logs (backend only)
-shipnode restart             # Restart app (backend only)
-shipnode stop                # Stop app (backend only)
-shipnode rollback            # Rollback to previous release
-shipnode rollback 2          # Rollback 2 releases back
-shipnode releases            # List all available releases
-shipnode migrate             # Migrate to release structure
+shipnode init                          # Create shipnode.conf (interactive wizard)
+shipnode init --non-interactive        # Create shipnode.conf with defaults
+shipnode init --print                  # Print config without writing file
+shipnode setup                         # Setup server (first time only)
+shipnode doctor                        # Run pre-flight diagnostics
+shipnode doctor --security             # Run security audit
+shipnode deploy                        # Deploy app
+shipnode deploy --skip-build           # Deploy without building
+shipnode deploy --dry-run              # Preview deployment steps
+shipnode deploy --config shipnode.staging.conf  # Use custom config
+shipnode status                        # Check app status
+shipnode logs                          # View logs (backend only)
+shipnode restart                       # Restart app (backend only)
+shipnode stop                          # Stop app (backend only)
+shipnode rollback                      # Rollback to previous release
+shipnode rollback 2                    # Rollback 2 releases back
+shipnode releases                      # List all available releases
+shipnode migrate                       # Migrate to release structure
+
+# CI/CD
+shipnode ci github                     # Generate GitHub Actions workflow
+shipnode ci env-sync                   # Sync config to GitHub secrets
+shipnode ci env-sync --all             # Sync config and .env to secrets
+
+# Security
+shipnode harden                        # Apply server security hardening
+shipnode doctor --security             # Run security posture audit
 
 # User Management
-shipnode user sync           # Provision users from users.yml
-shipnode user list           # List all provisioned users
-shipnode user remove <user>  # Revoke access for a user
-shipnode mkpasswd            # Generate password hash
+shipnode user sync                     # Provision users from users.yml
+shipnode user list                     # List all provisioned users
+shipnode user remove <user>            # Revoke access for a user
+shipnode mkpasswd                      # Generate password hash
 ```
 
 ## Diagnostics
@@ -296,35 +315,6 @@ The detected package manager is used automatically during deployment for:
 - Building the application (`npm run build` → `bun run build`, etc.)
 
 ## Zero-Downtime Deployment
-
-## Troubleshooting
-
-### Gum installation fails
-- Symptom: "Failed to install Gum. The interactive wizard will use fallback mode."
-- Cause: Package not available on your distro or missing sudo privileges
-- Fix:
-  - Install manually: Debian/Ubuntu `sudo apt install gum`, Fedora `sudo dnf install gum`, Arch `sudo pacman -S gum`, Alpine `sudo apk add gum`, macOS `brew install gum`
-  - Check installation log: `/tmp/shipnode_gum_install_<PID>.log`
-  - Continue without Gum: the wizard will automatically use classic prompts
-
-### Framework not detected
-- Ensure `package.json` is valid JSON (no trailing commas)
-- `jq` must be available on your local machine
-  - Install: `sudo apt install jq` or equivalent
-- The wizard still works without detection; select app type manually
-
-### Port not detected
-- The wizard supports common patterns: `PORT=3000`, `--port=5000`, `localhost:4000`, `listen(:3000)`
-- If your scripts differ, enter the port manually when prompted
-
-### CI/CD environments
-- Non-interactive environments have no TTY; Gum prompts are auto-disabled
-- Use `shipnode init --non-interactive` for fully scripted setups
-
-### SSH issues
-- Test connection: `ssh -p <port> <user>@<host>`
-- Ensure public key is deployed or correct password authentication is enabled
-- Verify firewall allows SSH port
 
 ShipNode uses atomic release-based deployments to ensure zero downtime during updates.
 
@@ -443,32 +433,123 @@ To use legacy deployment (direct rsync without releases):
 ZERO_DOWNTIME=false
 ```
 
-### Example Workflow
+## Deploy Preview (Dry Run)
+
+Preview deployment steps without executing them:
 
 ```bash
-# Initial deployment
-shipnode deploy
-# → Creates releases/20240124150000/, sets as current
-
-# Deploy update
-shipnode deploy
-# → Creates releases/20240124160000/
-# → Runs health check
-# → If success: switches to new release
-# → If failure: auto-rollback to 20240124150000/
-
-# Check releases
-shipnode releases
-# → Shows all releases with current marker
-
-# Manual rollback if needed
-shipnode rollback
-# → Switches back to previous release
-
-# Rollback to specific older release
-shipnode rollback 3
-# → Goes back 3 releases
+shipnode deploy --dry-run
 ```
+
+The dry-run mode shows:
+
+**Configuration Summary:**
+- App type, SSH connection details
+- Remote deployment path
+- PM2 process name (for backends)
+- Domain configuration
+- Zero-downtime settings
+- Health check configuration (secrets redacted)
+
+**Local Build Commands:**
+- Detected package manager
+- Build command to be executed
+- Build output directory
+
+**Remote Deployment Steps:**
+- Files to be synced via rsync
+- Excluded patterns (node_modules, .env, .git, etc.)
+- Remote commands to be executed
+- Zero-downtime flow steps (if enabled)
+
+**Example output:**
+```
+→ ShipNode Deploy Preview
+
+══════════════════════════════════════════════════════════════════
+Configuration Summary
+══════════════════════════════════════════════════════════════════
+App Type:       backend
+SSH:            deployer@203.0.113.10:22
+Remote Path:    /var/www/myapp
+PM2 Name:       myapp
+Backend Port:   3000
+Domain:         api.myapp.com
+Zero-downtime:  true
+Keep Releases:  5
+Health Checks:  enabled
+  Endpoint:     /health
+  Timeout:      30s
+  Retries:      3
+
+══════════════════════════════════════════════════════════════════
+Local Build Commands
+══════════════════════════════════════════════════════════════════
+→ Building application...
+  Command: npm run build
+  Package Manager: npm (detected from package-lock.json)
+
+══════════════════════════════════════════════════════════════════
+Remote Deployment Steps
+══════════════════════════════════════════════════════════════════
+→ Syncing files to remote...
+  Source: ./
+  Target: deployer@203.0.113.10:/var/www/myapp/releases/20240222143000/
+  Excluded: node_modules/ .env .env.* .git/ .github/ dist/ build/
+
+→ Setting up release structure...
+  - Create shared directories
+  - Symlink .env file
+  - Install dependencies
+
+→ Zero-downtime deployment...
+  1. Create new release directory
+  2. Sync application files
+  3. Install dependencies
+  4. Update 'current' symlink atomically
+  5. Reload PM2 process
+  6. Perform health checks (3 attempts, 30s timeout)
+  7. If health check fails → rollback to previous release
+  8. Cleanup old releases (keep last 5)
+
+→ Deployment preview complete (dry-run, no changes made)
+```
+
+**Use cases:**
+- Validate configuration before first deployment
+- Preview zero-downtime flow steps
+- Verify build commands and paths
+- Check rsync targets and exclusions
+- CI/CD pipeline validation
+
+## Troubleshooting
+
+### Gum installation fails
+- Symptom: "Failed to install Gum. The interactive wizard will use fallback mode."
+- Cause: Package not available on your distro or missing sudo privileges
+- Fix:
+  - Install manually: Debian/Ubuntu `sudo apt install gum`, Fedora `sudo dnf install gum`, Arch `sudo pacman -S gum`, Alpine `sudo apk add gum`, macOS `brew install gum`
+  - Check installation log: `/tmp/shipnode_gum_install_<PID>.log`
+  - Continue without Gum: the wizard will automatically use classic prompts
+
+### Framework not detected
+- Ensure `package.json` is valid JSON (no trailing commas)
+- `jq` must be available on your local machine
+  - Install: `sudo apt install jq` or equivalent
+- The wizard still works without detection; select app type manually
+
+### Port not detected
+- The wizard supports common patterns: `PORT=3000`, `--port=5000`, `localhost:4000`, `listen(:3000)`
+- If your scripts differ, enter the port manually when prompted
+
+### CI/CD environments
+- Non-interactive environments have no TTY; Gum prompts are auto-disabled
+- Use `shipnode init --non-interactive` for fully scripted setups
+
+### SSH issues
+- Test connection: `ssh -p <port> <user>@<host>`
+- Ensure public key is deployed or correct password authentication is enabled
+- Verify firewall allows SSH port
 
 ## User Provisioning
 
@@ -717,6 +798,85 @@ shipnode user sync
 Check if sudoers file exists:
 ```bash
 ssh root@server "cat /etc/sudoers.d/shipnode"
+```
+
+## CI/CD Integration
+
+ShipNode provides built-in CI/CD tooling for GitHub Actions workflows.
+
+### GitHub Actions Generator
+
+Generate a deployment workflow for GitHub Actions:
+
+```bash
+shipnode ci github
+```
+
+This creates `.github/workflows/deploy.yml` with a minimal deployment workflow that:
+- Installs dependencies
+- Runs build (if defined)
+- Deploys via SSH using `shipnode deploy`
+
+**Required GitHub Secrets:**
+
+The workflow expects these secrets to be configured in your repository:
+
+| Secret | Description | How to get |
+|--------|-------------|------------|
+| `SSH_PRIVATE_KEY` | SSH private key for deployment | Generate: `ssh-keygen -t ed25519 -C "deploy@ci"` |
+| `SSH_HOST` | Server IP or hostname | Your server's public IP |
+| `SSH_USER` | SSH username | Deployment user (e.g., `deployer`) |
+| `SSH_PORT` | SSH port (default: 22) | Your custom SSH port if changed |
+
+**Setup:**
+```bash
+# Generate the workflow
+shipnode ci github
+
+# Add secrets to GitHub repository:
+# Settings → Secrets and variables → Actions → New repository secret
+git add .github/workflows/deploy.yml
+git commit -m "Add GitHub Actions deployment workflow"
+git push
+```
+
+### Environment Sync
+
+Sync your `shipnode.conf` and `.env` files to GitHub Secrets:
+
+```bash
+# Sync only shipnode.conf values
+shipnode ci env-sync
+
+# Sync both config and .env file
+shipnode ci env-sync --all
+```
+
+This command:
+- Reads values from `shipnode.conf` (SSH_HOST, SSH_USER, SSH_PORT)
+- Syncs them to GitHub repository secrets using the `gh` CLI
+- Optionally syncs `.env` file contents as a base64-encoded secret
+
+**Prerequisites:**
+- `gh` CLI must be installed (auto-installed if missing)
+- Must be authenticated with GitHub: `gh auth login`
+- Must be in a git repository with a GitHub remote
+
+**Workflow Example:**
+
+```bash
+# 1. Generate workflow
+shipnode ci github
+
+# 2. Sync environment
+shipnode ci env-sync --all
+
+# 3. Push workflow
+git add .github/workflows/deploy.yml
+git commit -m "Add automated deployment"
+git push
+
+# 4. Deployment will trigger on every push to main!
 ```
 
 ## Backend Deployment
@@ -1055,7 +1215,129 @@ instances: 4,  // or 'max' for all CPU cores
 exec_mode: 'cluster'
 ```
 
-## Security Notes
+## Security Baseline
+
+ShipNode provides built-in security tools to harden your deployment server and audit its security posture.
+
+### Server Hardening
+
+Apply security hardening to your server with the `harden` command:
+
+```bash
+shipnode harden
+```
+
+This interactive command applies the following hardening measures:
+
+**SSH Security:**
+- Change SSH port (optional)
+- Disable password authentication (optional)
+- Disable root login (optional)
+
+**Firewall (UFW):**
+- Allow SSH, HTTP, and HTTPS only
+- Deny all other inbound traffic
+
+**Fail2Ban:**
+- Install and configure fail2ban (optional)
+- Protect against brute-force attacks
+
+All changes are **opt-in** with clear prompts. You'll see a summary before any changes are applied.
+
+**Example output:**
+```
+→ ShipNode Server Hardening
+
+SSH Configuration:
+  ✓ Password authentication disabled
+  ✓ Root login disabled
+
+Firewall (UFW):
+  ✓ Enabled
+  ✓ Allowed: 22/tcp (SSH)
+  ✓ Allowed: 80/tcp (HTTP)
+  ✓ Allowed: 443/tcp (HTTPS)
+
+Fail2Ban:
+  ✓ Installed and enabled
+
+→ Server hardening complete!
+```
+
+### Security Audit
+
+Run a non-destructive security audit with the `doctor` command:
+
+```bash
+shipnode doctor --security
+```
+
+**What it checks:**
+
+- **SSH Configuration:**
+  - Root login status
+  - Password authentication status
+  - Current SSH port
+
+- **Firewall Status:**
+  - UFW enabled/disabled
+  - Allowed ports
+  - Default policies
+
+- **Fail2Ban:**
+  - Installation status
+  - Service status
+  - Active jails
+
+- **File Permissions:**
+  - `shipnode.conf` permissions (should not be world-readable)
+  - `.env` file permissions (if present locally)
+
+**Example output:**
+```
+→ Security Audit
+
+SSH Configuration:
+  ✓ Root login disabled
+  ✓ Password authentication disabled
+  ✓ SSH port: 22
+
+Firewall Status:
+  ✓ UFW enabled
+  ✓ Deny incoming (default)
+  ✓ Allow 22/tcp (SSH)
+  ✓ Allow 80/tcp (HTTP)
+  ✓ Allow 443/tcp (HTTPS)
+
+Fail2Ban:
+  ✓ Installed
+  ✓ Service active
+  ✓ SSH jail enabled
+
+File Permissions:
+  ! shipnode.conf is world-readable (recommended: chmod 600)
+
+→ Audit complete! 1 warning found.
+```
+
+### Configuration Profiles
+
+Use different configuration files for different environments:
+
+```bash
+# Production deployment
+shipnode deploy
+
+# Staging deployment
+shipnode deploy --config shipnode.staging.conf
+
+# Custom config location
+shipnode deploy --config /path/to/custom.conf
+```
+
+Profile configs follow the naming convention `shipnode.<env>.conf` (e.g., `shipnode.staging.conf`, `shipnode.prod.conf`).
+
+### Security Notes
 
 - ShipNode doesn't handle secrets - manage `.env` files manually
 - Use SSH keys instead of passwords

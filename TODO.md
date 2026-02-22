@@ -42,7 +42,15 @@
   - Remote commands and rsync targets.
   - Zero-downtime flow steps if enabled.
   - Supports both backend and frontend apps, zero-downtime and legacy modes.
-
-## Docs Updates
+## Docs Updates ✅ COMPLETED
 - Update `README.md` with new command flags and examples.
-- Add a short “Security Baseline” section.
+  - Added all new flags: --dry-run, --security, --print, --config
+  - Added new commands: ci github, ci env-sync, harden
+  - Added comprehensive examples for each feature
+- Add a short "Security Baseline" section.
+  - Documented `shipnode harden` command with opt-in hardening options
+  - Documented `shipnode doctor --security` audit with checks for SSH, firewall, fail2ban
+  - Added configuration profiles section with --config flag usage
+  - Moved zero-downtime deployment docs to proper section
+  - Added CI/CD Integration section with GitHub Actions workflow generator
+  - Added Deploy Preview (dry-run) documentation with example output
