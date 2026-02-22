@@ -257,12 +257,16 @@ EOF
     success "Created shipnode.conf"
     info "Edit shipnode.conf with your server details, then run: shipnode deploy"
 
-    # Optionally generate users.yml
-    echo ""
-    if prompt_yes_no "Add deployment users?"; then
-        init_users_yaml
-    else
+    if [ "$non_interactive_flag" = true ]; then
         info "Skipped users.yml - create later with 'shipnode user sync'"
+    else
+        # Optionally generate users.yml
+        echo ""
+        if prompt_yes_no "Add deployment users?"; then
+            init_users_yaml
+        else
+            info "Skipped users.yml - create later with 'shipnode user sync'"
+        fi
     fi
 }
 
