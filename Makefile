@@ -1,14 +1,18 @@
-.PHONY: help build clean install test release
+.PHONY: help build clean install test test-integration test-integration-local test-clean test-list release
 
 help:
 	@echo "ShipNode Build System"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make build   - Build distributable installer"
-	@echo "  make clean   - Remove dist directory"
-	@echo "  make install - Install locally from source"
-	@echo "  make test    - Test the installer"
-	@echo "  make release - Create and publish a new release"
+	@echo "  make build                    - Build distributable installer"
+	@echo "  make clean                    - Remove dist directory"
+	@echo "  make install                  - Install locally from source"
+	@echo "  make test                     - Test the installer"
+	@echo "  make test-integration         - Run integration tests with Docker"
+	@echo "  make test-integration-local   - Run local tests only (no container)"
+	@echo "  make test-clean               - Clean up leftover test containers"
+	@echo "  make test-list                - List available integration test phases"
+	@echo "  make release                  - Create and publish a new release"
 
 build:
 	@./build-dist.sh
@@ -25,6 +29,22 @@ install:
 test: build
 	@echo "Testing installer..."
 	@bash dist/shipnode-installer.sh
+
+test-integration: build
+	@echo "Running integration tests with Docker..."
+	@./scripts/test-docker.sh --phases 1,2,3,4,5,6,7,8 2>&1
+
+test-integration-local: build
+	@echo "Running local integration tests (no container required)..."
+	@./scripts/test-docker.sh --local
+
+test-clean:
+	@echo "Cleaning up test containers..."
+	@docker ps -a --format '{{.Names}}' | grep "^shipnode-test-" | xargs -r docker rm -f 2>/dev/null || true
+	@echo "✓ Test environments cleaned up"
+
+test-list:
+	@./scripts/test-docker.sh --list
 
 release:
 	@echo "Creating release..."
